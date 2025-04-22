@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { loginWithEmailAndPassword } from '../services/auth.service';
+import { loginWithEmailAndPassword, registerWithEmailAndPassword } from '../services/auth.service';
 import { Button, Checkbox, Form, Input, message, Spin, Divider } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import useAuthStore from '../stores/auth.store';

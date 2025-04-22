@@ -619,7 +619,7 @@ const ServiceDetail = () => {
                     <Descriptions.Item label="Tên gói">{service?.title}</Descriptions.Item>
                     <Descriptions.Item label="Mô tả">{service?.description}</Descriptions.Item>
                     <Descriptions.Item label="Giá">{service && formatCurrency(service.price_range?.min)} - {service && formatCurrency(service.price_range?.max)}</Descriptions.Item>
-                    <Descriptions.Item label="Ngày học">{service?.date_range?.days?.map(d => d.toUpperCase()).join(', ')}</Descriptions.Item>
+                    <Descriptions.Item label="Ngày cho thuê">{service?.date_range?.days?.map(d => d.toUpperCase()).join(', ')}</Descriptions.Item>
                     <Descriptions.Item label="Danh mục"><Tag>{service?.category}</Tag></Descriptions.Item>
                     <Descriptions.Item label="Ghi chú">{service?.note}</Descriptions.Item>
                     <Descriptions.Item label="Trạng thái"><Tag color={service?.status === 'approved' ? 'green' : service?.status === 'pending' ? 'orange' : 'red'}>{service?.status}</Tag></Descriptions.Item>

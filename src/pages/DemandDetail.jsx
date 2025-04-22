@@ -490,7 +490,7 @@ const DemandDetail = () => {
                     <Descriptions.Item label="Tên gói">{demand?.title}</Descriptions.Item>
                     <Descriptions.Item label="Mô tả">{demand?.description}</Descriptions.Item>
                     <Descriptions.Item label="Giá">{demand && formatCurrency(demand.price_range?.min)} - {demand && formatCurrency(demand.price_range?.max)}</Descriptions.Item>
-                    <Descriptions.Item label="Ngày học">{demand?.date_range?.days?.map(d => d.toUpperCase()).join(', ')}</Descriptions.Item>
+                    <Descriptions.Item label="Ngày cho thuê">{demand?.date_range?.days?.map(d => d.toUpperCase()).join(', ')}</Descriptions.Item>
                     <Descriptions.Item label="Danh mục"><Tag>{demand?.category}</Tag></Descriptions.Item>
                     <Descriptions.Item label="Ghi chú">{demand?.note}</Descriptions.Item>
                     <Descriptions.Item label="Trạng thái"><Tag color={demand?.status === 'approved' ? 'green' : demand?.status === 'pending' ? 'orange' : 'red'}>{demand?.status}</Tag></Descriptions.Item>
