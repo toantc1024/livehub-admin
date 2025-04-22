@@ -111,7 +111,7 @@ const App = () => {
                             alignItems: 'center',
                         }}
                     >
-                        <h2 style={{ margin: 0, color: '#f5770b' }}>LiveHub Administration</h2>
+                        <h2 style={{ margin: 0, color: '#f5770b' }}>Hệ thống quản trị</h2>
                         {user && (
                             <div style={{ display: 'flex', alignItems: 'center' }}>
                                 <UserOutlined style={{ color: '#f5770b', fontSize: 16, marginRight: 8 }} />
