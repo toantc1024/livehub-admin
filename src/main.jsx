@@ -1,4 +1,7 @@
 import { BrowserRouter, Routes, Route } from "react-router";
+import React from "react";
+import ErrorPage from "./pages/ErrorPage";
+import RedirectorPage from "./pages/RedirectorPage";
 import LoginPage from "./pages/LoginPage";
 import DashboardPage from "./pages/DashboardPage";
 import ManageDemand from "./pages/ManageDemand";
@@ -34,8 +37,15 @@ createRoot(document.getElementById('root')).render(
   <ConfigProvider theme={theme}>
     <BrowserRouter>
       <Routes>
-        <Route path="/login" element={<LoginPage />} />
+
+
+        {/* 404 */}
+        <Route path="*" element={<ErrorPage />} />
+        {/* 401 */}
+        < Route path="/login" element={<LoginPage />} />
         <Route path="/" element={<AuthLayout />}>
+          {/* index is also DashBoard */}
+          <Route path="/" element={<RedirectorPage pathname="dashboard" />} />
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/manage-demand" element={<ManageDemand />} />
           <Route path="/manage-service" element={<ManageService />} />
