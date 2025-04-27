@@ -362,7 +362,12 @@ const DemandDetail = () => {
                                         <InputNumber min={0} style={{ width: '100%' }} addonAfter="VND" />
                                     </Form.Item>
                                     <Form.Item label="Ngày cho thuê trong tuần" name="days">
-                                        <Select mode="multiple" options={WEEKDAYS} placeholder="Chọn ngày" />
+                                        <Select 
+                                            mode="multiple" 
+                                            options={WEEKDAYS} 
+                                            placeholder="Chọn ngày"
+                                            value={demand?.date_range?.start ? [demand.date_range.start] : []}
+                                        />
                                     </Form.Item>
                                     <Form.Item label="Danh mục" name="category">
                                         <Input />

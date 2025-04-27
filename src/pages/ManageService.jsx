@@ -40,6 +40,25 @@ const ManageService = () => {
             title: 'Mô tả',
             dataIndex: 'description',
             width: 150,
+            ellipsis: {
+                showTitle: false,
+            },
+            render: (text) => (
+                <span title={text}>{text}</span>
+            )
+        },
+        {
+            title: 'Thời gian',
+            dataIndex: 'selected_time_slots',
+            width: 150,
+            render: (timeSlots) => {
+                if (!timeSlots) return '-';
+                return (
+                    <span title={JSON.stringify(timeSlots)}>
+                        {timeSlots.start ? new Date(timeSlots.start).toLocaleString() : '-'} - {timeSlots.end ? new Date(timeSlots.end).toLocaleString() : '-'}
+                    </span>
+                );
+            }
         },
         {
             title: 'Giá',

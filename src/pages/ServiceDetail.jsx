@@ -477,7 +477,12 @@ const ServiceDetail = () => {
                                     <InputNumber min={0} style={{ width: '100%' }} addonAfter="VND" />
                                 </Form.Item>
                                 <Form.Item label="Ngày cho thuê trong tuần" name="days">
-                                    <Select mode="multiple" options={WEEKDAYS} placeholder="Chọn ngày" />
+                                    <Select 
+                                        mode="multiple" 
+                                        options={WEEKDAYS} 
+                                        placeholder="Chọn ngày"
+                                        value={service?.date_range?.start ? [service.date_range.start] : []}
+                                    />
                                 </Form.Item>
                                 <Form.Item label="Danh mục" name="category">
                                     <Input />
