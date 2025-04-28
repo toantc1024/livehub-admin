@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useTransition } from 'react'
-import { Button, Tag } from 'antd';
+import { Button, Tag, Input, AutoComplete, Spin } from 'antd';
 import { getAllServices, getAllServiceCSV } from '../services/item.service'
 import TableData from '../components/TableData'
 import { useNavigate } from 'react-router';
@@ -10,6 +10,12 @@ import { CurrencyDelimiter } from '../utils/Currency';
 
 const ManageService = () => {
     const navigate = useNavigate();
+    const [searchTerm, setSearchTerm] = useState('');
+    const [filteredServices, setFilteredServices] = useState([]);
+    const [searchOptions, setSearchOptions] = useState([]);
+    const [searchLoading, setSearchLoading] = useState(false);
+
+    const { Search } = Input;
 
     const handleExportServices = async () => {
         try {
@@ -174,33 +180,98 @@ const ManageService = () => {
     ];
     const [isPending, startTransition] = useTransition();
     const [services, setServices] = useState([]);
+
     useEffect(() => {
         startTransition(async () => {
             let services = await getAllServices();
             setServices(services);
+            setFilteredServices(services);
         })
     }, []);
 
+    // Search function with recommendations
+    const handleSearch = (value) => {
+        setSearchTerm(value);
+        setSearchLoading(true);
+
+        if (!value.trim()) {
+            setFilteredServices(services);
+            setSearchOptions([]);
+            setSearchLoading(false);
+            return;
+        }
+
+        // Generate recommendations based on titles
+        const titleOptions = services
+            .filter(service => service.title?.toLowerCase().includes(value.toLowerCase()))
+            .map(service => ({ value: service.title, label: service.title }))
+            .slice(0, 5);
+
+        // Generate recommendations based on categories
+        const categories = [...new Set(services
+            .filter(service => service.category?.toLowerCase().includes(value.toLowerCase()))
+            .map(service => service.category))]
+            .map(category => ({ value: category, label: `Danh mục: ${category}` }));
+
+        setSearchOptions([...titleOptions, ...categories].slice(0, 10));
+
+        const filtered = services.filter(service =>
+            service.title?.toLowerCase().includes(value.toLowerCase()) ||
+            service.description?.toLowerCase().includes(value.toLowerCase()) ||
+            (service.price_range?.min?.toString() || '').includes(value) ||
+            (service.price_range?.max?.toString() || '').includes(value) ||
+            (service.category?.toLowerCase() || '').includes(value.toLowerCase())
+        );
+        setFilteredServices(filtered);
+        setSearchLoading(false);
+    };
+
+    const onSelect = (value) => {
+        setSearchTerm(value);
+        handleSearch(value);
+    };
+
     return (
         <div>
-
             <Divider>Quản lý dịch vụ</Divider>
-            <div style={{ marginBottom: 16 }} className='flexfitems-center'>
-                <Button type="primary" icon={<FileTextOutlined />} onClick={handleExportServices}>
-                    Xuất CSV
-                </Button>
+            <div style={{ marginBottom: 16, display: 'flex', gap: 16 }}>
+                <AutoComplete
+                    options={searchOptions}
+                    onSelect={onSelect}
+                    onSearch={handleSearch}
+                    value={searchTerm}
+                    onChange={setSearchTerm}
+                    style={{ flex: 1 }}
+                    placeholder="Tìm kiếm dịch vụ..."
+                    notFoundContent={searchLoading ? <Spin size="small" /> : "Không có gợi ý"}
+                >
+                    <Input.Search
+                        enterButton
+                        loading={searchLoading}
+                        onSearch={handleSearch}
+                        allowClear
+                    />
+                </AutoComplete>
             </div>
             <TableData
                 bordered
                 columns={columns}
-                dataSource={KeyWRapper(services)}
+                dataSource={KeyWRapper(filteredServices)}
                 handleTableChange={() => { }}
                 pageSize={50}
-                loading={isPending}
+                loading={isPending || searchLoading}
                 scrollY={55 * 5}
                 size='small'
+                extraButtons={
+                    <Button
+                        type="primary"
+                        icon={<FileTextOutlined />}
+                        onClick={handleExportServices}
+                    >
+                        Xuất CSV
+                    </Button>
+                }
             />
-
         </div>
     )
 }

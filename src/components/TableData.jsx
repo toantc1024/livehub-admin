@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Space, Input, Button } from 'antd';
-import { SearchOutlined, ExpandOutlined, ShrinkOutlined } from '@ant-design/icons';
+import { Table, Space, Input, Button, Empty, Spin } from 'antd';
+import { SearchOutlined, ExpandOutlined, ShrinkOutlined, InboxOutlined } from '@ant-design/icons';
 import { createStyles } from 'antd-style';
 
 const useStyle = createStyles(({ css, token }) => {
@@ -51,6 +51,7 @@ const TableData = ({
     size = 'middle',
     searchable = false,
     searchField = 'title',
+    extraButtons = null,
 }) => {
     const { styles } = useStyle();
     const [searchText, setSearchText] = useState('');
@@ -128,6 +129,23 @@ const TableData = ({
         setExpandedView(!expandedView);
     };
 
+    // Custom empty state component
+    const customEmpty = () => (
+        <Empty
+            image={<InboxOutlined style={{ fontSize: 60, color: '#bfbfbf' }} />}
+            description={
+                loading ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                        <Spin size="large" style={{ marginBottom: 16 }} />
+                        <span>Đang tải dữ liệu...</span>
+                    </div>
+                ) : (
+                    <span>Không có dữ liệu hiển thị</span>
+                )
+            }
+        />
+    );
+
     return (
         <div className={`${styles.customTable} ${styles.responsiveTable}`}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap' }}>
@@ -142,6 +160,11 @@ const TableData = ({
                             prefix={<SearchOutlined />}
                         />
                     </Space>
+                )}
+                {extraButtons && (
+                    <div style={{ display: 'flex', gap: 8 }}>
+                        {extraButtons}
+                    </div>
                 )}
                 <Button
                     type="text"
@@ -168,6 +191,9 @@ const TableData = ({
                 }}
                 loading={loading}
                 rowClassName={() => expandedView ? 'expanded-row' : ''}
+                locale={{
+                    emptyText: customEmpty()
+                }}
             />
         </div>
     );

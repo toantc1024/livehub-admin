@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useTransition } from 'react'
-import { Button, Tag, Alert, Modal, Calendar, Spin } from 'antd';
+import { Button, Tag, Alert, Modal, Calendar, Spin, Input, AutoComplete } from 'antd';
 import { getAllDemands, getAllDemandsCSV } from '../services/item.service'
 import { getAllDemandApplicationsByDemandId } from '../services/demand_application.service'
 import TableData from '../components/TableData'
@@ -16,6 +16,12 @@ const ManageDemand = () => {
     const [currentDemandId, setCurrentDemandId] = useState(null);
     const [duplicateAlert, setDuplicateAlert] = useState(null);
     const [loadingCalendar, setLoadingCalendar] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [filteredDemands, setFilteredDemands] = useState([]);
+    const [searchOptions, setSearchOptions] = useState([]);
+    const [searchLoading, setSearchLoading] = useState(false);
+
+    const { Search } = Input;
 
     const handleExportDemands = async () => {
         try {
@@ -185,19 +191,19 @@ const ManageDemand = () => {
                 <span title={text}>{text}</span>
             )
         },
-        {
-            title: 'Thời gian',
-            dataIndex: 'selected_time_slots',
-            width: 150,
-            render: (timeSlots) => {
-                if (!timeSlots) return '-';
-                return (
-                    <span title={JSON.stringify(timeSlots)}>
-                        {timeSlots.start ? new Date(timeSlots.start).toLocaleString() : '-'} - {timeSlots.end ? new Date(timeSlots.end).toLocaleString() : '-'}
-                    </span>
-                );
-            }
-        },
+        // {
+        //     title: 'Thời gian',
+        //     dataIndex: 'selected_time_slots',
+        //     width: 150,
+        //     render: (timeSlots) => {
+        //         if (!timeSlots) return '-';
+        //         return (
+        //             <span title={JSON.stringify(timeSlots)}>
+        //                 {timeSlots.start ? new Date(timeSlots.start).toLocaleString() : '-'} - {timeSlots.end ? new Date(timeSlots.end).toLocaleString() : '-'}
+        //             </span>
+        //         );
+        //     }
+        // },
         {
             title: 'Giá',
             dataIndex: 'price_range',
@@ -244,8 +250,51 @@ const ManageDemand = () => {
         startTransition(async () => {
             let demands = await getAllDemands();
             setDemands(demands);
+            setFilteredDemands(demands);
         })
     }, []);
+
+    // Search function with recommendations
+    const handleSearch = (value) => {
+        setSearchTerm(value);
+        setSearchLoading(true);
+
+        if (!value.trim()) {
+            setFilteredDemands(demands);
+            setSearchOptions([]);
+            setSearchLoading(false);
+            return;
+        }
+
+        // Generate recommendations based on titles
+        const titleOptions = demands
+            .filter(demand => demand.title?.toLowerCase().includes(value.toLowerCase()))
+            .map(demand => ({ value: demand.title, label: demand.title }))
+            .slice(0, 5);
+
+        // Generate recommendations based on categories
+        const categories = [...new Set(demands
+            .filter(demand => demand.category?.toLowerCase().includes(value.toLowerCase()))
+            .map(demand => demand.category))]
+            .map(category => ({ value: category, label: `Danh mục: ${category}` }));
+
+        setSearchOptions([...titleOptions, ...categories].slice(0, 10));
+
+        const filtered = demands.filter(demand =>
+            demand.title?.toLowerCase().includes(value.toLowerCase()) ||
+            demand.description?.toLowerCase().includes(value.toLowerCase()) ||
+            (demand.price_range?.min?.toString() || '').includes(value) ||
+            (demand.price_range?.max?.toString() || '').includes(value) ||
+            (demand.category?.toLowerCase() || '').includes(value.toLowerCase())
+        );
+        setFilteredDemands(filtered);
+        setSearchLoading(false);
+    };
+
+    const onSelect = (value) => {
+        setSearchTerm(value);
+        handleSearch(value);
+    };
 
     // Calendar date cell renderer to show application status
     const dateCellRender = (date) => {
@@ -299,20 +348,43 @@ const ManageDemand = () => {
     return (
         <div>
             <Divider>Quản lý nhu cầu</Divider>
-            <div style={{ marginBottom: 16 }} className='flexfitems-center'>
-                <Button type="primary" icon={<FileTextOutlined />} onClick={handleExportDemands}>
-                    Xuất CSV
-                </Button>
+            <div style={{ marginBottom: 16, display: 'flex', gap: 16 }}>
+                <AutoComplete
+                    options={searchOptions}
+                    onSelect={onSelect}
+                    onSearch={handleSearch}
+                    value={searchTerm}
+                    onChange={setSearchTerm}
+                    style={{ flex: 1 }}
+                    placeholder="Tìm kiếm nhu cầu..."
+                    notFoundContent={searchLoading ? <Spin size="small" /> : "Không có gợi ý"}
+                >
+                    <Input.Search
+                        enterButton
+                        loading={searchLoading}
+                        onSearch={handleSearch}
+                        allowClear
+                    />
+                </AutoComplete>
             </div>
             <TableData
                 bordered
                 columns={columns}
-                dataSource={KeyWRapper(demands)}
+                dataSource={KeyWRapper(filteredDemands)}
                 handleTableChange={() => { }}
                 pageSize={50}
-                loading={isPending}
+                loading={isPending || searchLoading}
                 scrollY={55 * 5}
                 size='small'
+                extraButtons={
+                    <Button
+                        type="primary"
+                        icon={<FileTextOutlined />}
+                        onClick={handleExportDemands}
+                    >
+                        Xuất CSV
+                    </Button>
+                }
             />
 
             {/* Calendar Modal */}
