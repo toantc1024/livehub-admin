@@ -179,6 +179,18 @@ const ServiceDetail = () => {
 
     const handleUpdate = async (values) => {
         try {
+            // Kiểm tra tiêu đề không được trống
+            if (!values.title || values.title.trim() === '') {
+                messageApi.error('Tiêu đề không được để trống');
+                return;
+            }
+
+            // Kiểm tra giá tối thiểu không lớn hơn giá tối đa
+            if (values.min > values.max) {
+                messageApi.error('Giá tối thiểu không được lớn hơn giá tối đa');
+                return;
+            }
+
             setLoading(true);
             const updatedService = {
                 ...service,
@@ -198,7 +210,8 @@ const ServiceDetail = () => {
                 status: values.status,
                 contact_info: {
                     contacts: values.contacts || []
-                }
+                },
+                image_urls: values.image_urls || service.image_urls
             };
 
             const { error } = await updateServiceById(id, updatedService);
@@ -513,6 +526,17 @@ const ServiceDetail = () => {
         },
     ];
 
+    // Force re-render modal content when rental status changes
+    useEffect(() => {
+        if (selectedRental) {
+            // Find the updated rental from the list to ensure we have the latest data
+            const updatedRental = rentalList.find(r => r.id === selectedRental.id);
+            if (updatedRental) {
+                setSelectedRental(updatedRental);
+            }
+        }
+    }, [rentalList, selectedRental?.id]);
+
     return (
         <>
             {contextHolder}
@@ -543,7 +567,22 @@ const ServiceDetail = () => {
                                     wrap
                                 >
                                     {!editMode ? (
-                                        <>
+                                        <Flex
+                                            wrap="wrap"
+                                            gap="small"
+                                            justify="center"
+                                            style={{
+                                                width: '100%',
+                                                // Make buttons display in one row on laptop screens
+                                                '@media (min-width: 768px)': {
+                                                    flexDirection: 'row',
+                                                },
+                                                // Make buttons stack on mobile screens
+                                                '@media (max-width: 767px)': {
+                                                    flexDirection: 'column',
+                                                }
+                                            }}
+                                        >
                                             <Button
                                                 type="default"
                                                 icon={<EditOutlined />}
@@ -585,9 +624,14 @@ const ServiceDetail = () => {
                                                     Duyệt
                                                 </Button>
                                             )}
-                                        </>
+                                        </Flex>
                                     ) : (
-                                        <>
+                                        <Flex
+                                            wrap="wrap"
+                                            gap="small"
+                                            justify="center"
+                                            style={{ width: '100%' }}
+                                        >
                                             <Button
                                                 type="primary"
                                                 onClick={form.submit}
@@ -601,7 +645,7 @@ const ServiceDetail = () => {
                                             >
                                                 Hủy
                                             </Button>
-                                        </>
+                                        </Flex>
                                     )}
                                 </Space>
                             </Divider>
@@ -612,16 +656,16 @@ const ServiceDetail = () => {
                                 disabled={!editMode || loading}
                                 onFinish={handleUpdate}
                             >
-                                <Form.Item label="Tiêu đề" name="title" rules={[{ required: true }]}>
+                                <Form.Item label="Tiêu đề" name="title" rules={[{ required: true, message: 'Vui lòng nhập tiêu đề' }]}>
                                     <Input />
                                 </Form.Item>
                                 <Form.Item label="Mô tả" name="description">
                                     <Input.TextArea rows={3} />
                                 </Form.Item>
-                                <Form.Item label="Khoảng giá tối thiểu" name="min" rules={[{ required: true }]}>
+                                <Form.Item label="Khoảng giá tối thiểu" name="min" rules={[{ required: true, message: 'Vui lòng nhập giá tối thiểu' }]}>
                                     <InputNumber min={0} style={{ width: '100%' }} addonAfter="VND" />
                                 </Form.Item>
-                                <Form.Item label="Khoảng giá tối đa" name="max" rules={[{ required: true }]}>
+                                <Form.Item label="Khoảng giá tối đa" name="max" rules={[{ required: true, message: 'Vui lòng nhập giá tối đa' }]}>
                                     <InputNumber min={0} style={{ width: '100%' }} addonAfter="VND" />
                                 </Form.Item>
                                 <Form.Item label="Ngày cho thuê trong tuần" name="days">
@@ -652,10 +696,52 @@ const ServiceDetail = () => {
                                 <Form.Item
                                     label="Trạng thái"
                                     name="status"
-                                    rules={[{ required: true }]}
+                                    rules={[{ required: true, message: 'Vui lòng chọn trạng thái' }]}
                                 >
                                     <Select options={STATUS_OPTIONS} />
                                 </Form.Item>
+
+                                {/* Hiển thị hình ảnh */}
+                                <Form.Item label="Hình ảnh">
+                                    {editMode ? (
+                                        <Dropzone
+                                            maxFiles={5}
+                                            bucket="images"
+                                            value={service?.image_urls || []}
+                                            onChange={(newImages) => {
+                                                const updatedService = { ...service, image_urls: newImages };
+                                                setService(updatedService);
+                                                form.setFieldsValue({ image_urls: newImages });
+                                            }}
+                                        />
+                                    ) : (
+                                        service?.image_urls?.length > 0 ? (
+                                            <div className="image-slider" style={{ width: '100%', overflow: 'hidden' }}>
+                                                <div style={{ display: 'flex', overflowX: 'auto', gap: '10px', padding: '10px 0' }}>
+                                                    {service.image_urls.map((url, index) => (
+                                                        <div key={index} style={{ flex: '0 0 auto' }}>
+                                                            <Image
+                                                                src={url}
+                                                                style={{ height: '150px', objectFit: 'cover' }}
+                                                                preview={{
+                                                                    src: url,
+                                                                    mask: <EyeOutlined style={{ fontSize: '16px' }} />,
+                                                                }}
+                                                            />
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <span>Không có hình ảnh</span>
+                                        )
+                                    )}
+                                </Form.Item>
+
+                                <Form.Item name="image_urls" hidden={true}>
+                                    <Input />
+                                </Form.Item>
+
                                 <Form.List name="contacts">
                                     {(fields, { add, remove }) => (
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -673,7 +759,7 @@ const ServiceDetail = () => {
                                                         {...field}
                                                         name={[field.name, 'platform']}
                                                         fieldKey={[field.fieldKey, 'platform']}
-                                                        rules={[{ required: true, message: 'Chọn nền tảng' }]}
+                                                        rules={[{ required: true, message: 'Vui lòng chọn nền tảng' }]}
                                                         style={{ flex: '1 1 120px', minWidth: 120, marginBottom: 0 }}
                                                     >
                                                         <Select
@@ -712,7 +798,7 @@ const ServiceDetail = () => {
                                                         {...field}
                                                         name={[field.name, 'value']}
                                                         fieldKey={[field.fieldKey, 'value']}
-                                                        rules={[{ required: true, message: 'Nhập thông tin liên hệ' }]}
+                                                        rules={[{ required: true, message: 'Vui lòng nhập thông tin liên hệ' }]}
                                                         style={{ flex: '2 1 200px', minWidth: 180, marginBottom: 0 }}
                                                     >
                                                         <Input placeholder="Thông tin liên hệ" />
@@ -788,11 +874,26 @@ const ServiceDetail = () => {
                         ))}
                     </Descriptions.Item>
                     <Descriptions.Item label="Hình ảnh">
-                        <Image.PreviewGroup>
-                            {service?.image_urls?.map(url => (
-                                <Image key={url} src={url} style={{ maxWidth: 200, margin: 8 }} />
-                            ))}
-                        </Image.PreviewGroup>
+                        {service?.image_urls?.length > 0 ? (
+                            <div className="image-slider" style={{ width: '100%', overflow: 'hidden' }}>
+                                <div style={{ display: 'flex', overflowX: 'auto', gap: '10px', padding: '10px 0' }}>
+                                    {service.image_urls.map((url, index) => (
+                                        <div key={index} style={{ flex: '0 0 auto' }}>
+                                            <Image
+                                                src={url}
+                                                style={{ height: '150px', objectFit: 'cover' }}
+                                                preview={{
+                                                    src: url,
+                                                    mask: <EyeOutlined style={{ fontSize: '16px' }} />,
+                                                }}
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ) : (
+                            <span>Không có hình ảnh</span>
+                        )}
                     </Descriptions.Item>
                 </Descriptions>
             </Modal>
@@ -1014,7 +1115,27 @@ const ServiceDetail = () => {
                                 setLoading(false);
                                 return;
                             }
-                            setService(updatedService);
+
+                            // Force UI update by refreshing the service data
+                            const { data } = await getServiceById(id);
+                            if (data && data.length > 0) {
+                                const refreshedService = data[0];
+                                setService(refreshedService);
+
+                                // Update form with fresh data
+                                form.setFieldsValue({
+                                    title: refreshedService.title,
+                                    description: refreshedService.description,
+                                    min: refreshedService.price_range?.min,
+                                    max: refreshedService.price_range?.max,
+                                    days: refreshedService.date_range?.days || [],
+                                    category: refreshedService.category,
+                                    note: refreshedService.note,
+                                    status: refreshedService.status,
+                                    contacts: refreshedService.contact_info?.contacts || [],
+                                });
+                            }
+
                             messageApi.success('Duyệt dịch vụ thành công');
                             setLoading(false);
                             setPostConfirmModalVisible(true);

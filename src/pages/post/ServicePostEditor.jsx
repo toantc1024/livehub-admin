@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Input, Button, Space, message, Checkbox, Spin, Card, Row, Col, Image, Typography, Divider } from 'antd';
+import { Form, Input, Button, Space, message, Checkbox, Spin, Card, Row, Col, Image, Typography, Divider, Modal } from 'antd';
 import { ArrowLeftOutlined, DeleteOutlined, EyeOutlined } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router';
 import RichtextEditor from '../../components/RichtextEditor';
 import Dropzone from '../../components/Dropzone';
 import { getServiceById, updateServiceById } from '../../services/item.service';
+import { ExclamationCircleOutlined } from '@ant-design/icons';
 
 const { Title, Text } = Typography;
 
@@ -93,9 +94,20 @@ const ServicePostEditor = () => {
     };
 
     const handleRemoveImage = (imageUrl) => {
-        const newImages = currentImages.filter(url => url !== imageUrl);
-        setCurrentImages(newImages);
-        form.setFieldsValue({ image_urls: newImages });
+        Modal.confirm({
+            title: 'Xác nhận xóa ảnh',
+            icon: <ExclamationCircleOutlined />,
+            content: 'Bạn có chắc chắn muốn xóa ảnh này?',
+            okText: 'Xóa',
+            okType: 'danger',
+            cancelText: 'Hủy',
+            onOk() {
+                const newImages = currentImages.filter(url => url !== imageUrl);
+                setCurrentImages(newImages);
+                form.setFieldsValue({ image_urls: newImages });
+                message.success('Đã xóa ảnh');
+            }
+        });
     };
 
     const handlePreview = (imageUrl) => {

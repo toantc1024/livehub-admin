@@ -19,11 +19,11 @@ const LoginPage = () => {
                 values.password
             );
             setUser(user);
-            message.success('Login successful!');
+            message.success('Đăng nhập thành công!');
             navigate('/dashboard');
         } catch (error) {
             console.error('Login failed:', error);
-            message.error(error.message || 'Login failed. Please try again.');
+            message.error(error.message || 'Đăng nhập thất bại. Vui lòng thử lại.');
         } finally {
             setLoading(false);
         }
@@ -31,7 +31,7 @@ const LoginPage = () => {
 
     const onFinishFailed = (errorInfo) => {
         console.log('Failed:', errorInfo);
-        message.error('Please check your form inputs.');
+        message.error('Vui lòng kiểm tra lại thông tin đăng nhập.');
     };
 
     return (

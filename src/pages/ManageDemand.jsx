@@ -216,7 +216,7 @@ const ManageDemand = () => {
             dataIndex: 'need_support',
             render: (_, record) => {
                 // Checkbox
-                return <Checkbox checked={record.need_support} />
+                return <Checkbox disabled checked={record.need_support} />
             },
             width: 80,
         },

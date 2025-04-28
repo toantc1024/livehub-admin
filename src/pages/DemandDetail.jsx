@@ -14,13 +14,13 @@ import supabase from '../supabase/client';
 import SpinOverlay from '../components/SpinOverlay';
 
 const WEEKDAYS = [
-    { label: 'Monday', value: 'mon' },
-    { label: 'Tuesday', value: 'tue' },
-    { label: 'Wednesday', value: 'wed' },
-    { label: 'Thursday', value: 'thu' },
-    { label: 'Friday', value: 'fri' },
-    { label: 'Saturday', value: 'sat' },
-    { label: 'Sunday', value: 'sun' },
+    { label: 'Thứ Hai', value: 'mon' },
+    { label: 'Thứ Ba', value: 'tue' },
+    { label: 'Thứ Tư', value: 'wed' },
+    { label: 'Thứ Năm', value: 'thu' },
+    { label: 'Thứ Sáu', value: 'fri' },
+    { label: 'Thứ Bảy', value: 'sat' },
+    { label: 'Chủ Nhật', value: 'sun' },
 ];
 
 const STATUS_OPTIONS = [
@@ -133,6 +133,18 @@ const DemandDetail = () => {
 
     const handleUpdate = async (values) => {
         try {
+            // Kiểm tra tiêu đề không được trống
+            if (!values.title || values.title.trim() === '') {
+                messageApi.error('Tiêu đề không được để trống');
+                return;
+            }
+
+            // Kiểm tra giá tối thiểu không lớn hơn giá tối đa
+            if (values.min > values.max) {
+                messageApi.error('Giá tối thiểu không được lớn hơn giá tối đa');
+                return;
+            }
+
             setLoading(true);
             const updatedDemand = {
                 ...demand,
@@ -152,7 +164,8 @@ const DemandDetail = () => {
                 status: values.status,
                 contact_info: {
                     contacts: values.contacts || []
-                }
+                },
+                image_urls: values.image_urls || demand.image_urls
             };
 
             const { error } = await updateDemandById(id, updatedDemand);
@@ -348,6 +361,17 @@ const DemandDetail = () => {
         },
     ];
 
+    // Force re-render modal content when demand application status changes
+    useEffect(() => {
+        if (selectedDemand) {
+            // Find the updated demand application from the list to ensure we have the latest data
+            const updatedDemand = demandList.find(d => d.id === selectedDemand.id);
+            if (updatedDemand) {
+                setSelectedDemand(updatedDemand);
+            }
+        }
+    }, [demandList, selectedDemand?.id]);
+
     return (
         <>
             {contextHolder}
@@ -375,7 +399,22 @@ const DemandDetail = () => {
                                         wrap
                                     >
                                         {!editMode ? (
-                                            <>
+                                            <Flex
+                                                wrap="wrap"
+                                                gap="small"
+                                                justify="center"
+                                                style={{
+                                                    width: '100%',
+                                                    // Make buttons display in one row on laptop screens
+                                                    '@media (min-width: 768px)': {
+                                                        flexDirection: 'row',
+                                                    },
+                                                    // Make buttons stack on mobile screens
+                                                    '@media (max-width: 767px)': {
+                                                        flexDirection: 'column',
+                                                    }
+                                                }}
+                                            >
                                                 <Button
                                                     type="default"
                                                     icon={<EditOutlined />}
@@ -417,9 +456,14 @@ const DemandDetail = () => {
                                                         Duyệt
                                                     </Button>
                                                 )}
-                                            </>
+                                            </Flex>
                                         ) : (
-                                            <>
+                                            <Flex
+                                                wrap="wrap"
+                                                gap="small"
+                                                justify="center"
+                                                style={{ width: '100%' }}
+                                            >
                                                 <Button
                                                     type="primary"
                                                     onClick={form.submit}
@@ -433,7 +477,7 @@ const DemandDetail = () => {
                                                 >
                                                     Hủy
                                                 </Button>
-                                            </>
+                                            </Flex>
                                         )}
                                     </Space>
                                 </Divider>
@@ -444,16 +488,16 @@ const DemandDetail = () => {
                                     disabled={!editMode || loading}
                                     onFinish={handleUpdate}
                                 >
-                                    <Form.Item label="Tiêu đề" name="title" rules={[{ required: true }]}>
+                                    <Form.Item label="Tiêu đề" name="title" rules={[{ required: true, message: 'Vui lòng nhập tiêu đề' }]}>
                                         <Input />
                                     </Form.Item>
                                     <Form.Item label="Mô tả" name="description">
                                         <Input.TextArea rows={3} />
                                     </Form.Item>
-                                    <Form.Item label="Khoảng giá tối thiểu" name="min" rules={[{ required: true }]}>
+                                    <Form.Item label="Khoảng giá tối thiểu" name="min" rules={[{ required: true, message: 'Vui lòng nhập giá tối thiểu' }]}>
                                         <InputNumber min={0} style={{ width: '100%' }} addonAfter="VND" />
                                     </Form.Item>
-                                    <Form.Item label="Khoảng giá tối đa" name="max" rules={[{ required: true }]}>
+                                    <Form.Item label="Khoảng giá tối đa" name="max" rules={[{ required: true, message: 'Vui lòng nhập giá tối đa' }]}>
                                         <InputNumber min={0} style={{ width: '100%' }} addonAfter="VND" />
                                     </Form.Item>
                                     <Form.Item label="Ngày cho thuê trong tuần" name="days">
@@ -473,10 +517,52 @@ const DemandDetail = () => {
                                     <Form.Item
                                         label="Trạng thái"
                                         name="status"
-                                        rules={[{ required: true }]}
+                                        rules={[{ required: true, message: 'Vui lòng chọn trạng thái' }]}
                                     >
                                         <Select options={STATUS_OPTIONS} />
                                     </Form.Item>
+
+                                    {/* Hiển thị hình ảnh */}
+                                    <Form.Item label="Hình ảnh">
+                                        {editMode ? (
+                                            <Dropzone
+                                                maxFiles={5}
+                                                bucket="images"
+                                                value={demand?.image_urls || []}
+                                                onChange={(newImages) => {
+                                                    const updatedDemand = { ...demand, image_urls: newImages };
+                                                    setDemand(updatedDemand);
+                                                    form.setFieldsValue({ image_urls: newImages });
+                                                }}
+                                            />
+                                        ) : (
+                                            demand?.image_urls?.length > 0 ? (
+                                                <div className="image-slider" style={{ width: '100%', overflow: 'hidden' }}>
+                                                    <div style={{ display: 'flex', overflowX: 'auto', gap: '10px', padding: '10px 0' }}>
+                                                        {demand.image_urls.map((url, index) => (
+                                                            <div key={index} style={{ flex: '0 0 auto' }}>
+                                                                <Image
+                                                                    src={url}
+                                                                    style={{ height: '150px', objectFit: 'cover' }}
+                                                                    preview={{
+                                                                        src: url,
+                                                                        mask: <EyeOutlined style={{ fontSize: '16px' }} />,
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <span>Không có hình ảnh</span>
+                                            )
+                                        )}
+                                    </Form.Item>
+
+                                    <Form.Item name="image_urls" hidden={true}>
+                                        <Input />
+                                    </Form.Item>
+
                                     <Form.List name="contacts">
                                         {(fields, { add, remove }) => (
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -574,7 +660,7 @@ const DemandDetail = () => {
                         </Tabs>
                     ) : <Spin />}
                 </SpinOverlay>
-            </div>
+            </div >
 
             <Modal
                 title="Xem trước"
@@ -601,11 +687,26 @@ const DemandDetail = () => {
                         ))}
                     </Descriptions.Item>
                     <Descriptions.Item label="Hình ảnh">
-                        <Image.PreviewGroup>
-                            {demand?.image_urls?.map(url => (
-                                <Image key={url} src={url} style={{ maxWidth: 200, margin: 8 }} />
-                            ))}
-                        </Image.PreviewGroup>
+                        {demand?.image_urls?.length > 0 ? (
+                            <div className="image-slider" style={{ width: '100%', overflow: 'hidden' }}>
+                                <div style={{ display: 'flex', overflowX: 'auto', gap: '10px', padding: '10px 0' }}>
+                                    {demand.image_urls.map((url, index) => (
+                                        <div key={index} style={{ flex: '0 0 auto' }}>
+                                            <Image
+                                                src={url}
+                                                style={{ height: '150px', objectFit: 'cover' }}
+                                                preview={{
+                                                    src: url,
+                                                    mask: <EyeOutlined style={{ fontSize: '16px' }} />,
+                                                }}
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ) : (
+                            <span>Không có hình ảnh</span>
+                        )}
                     </Descriptions.Item>
                 </Descriptions>
             </Modal>
@@ -706,7 +807,27 @@ const DemandDetail = () => {
                                 setLoading(false);
                                 return;
                             }
-                            setDemand(updatedDemand);
+
+                            // Force UI update by refreshing the demand data
+                            const { data } = await getDemandById(id);
+                            if (data && data.length > 0) {
+                                const refreshedDemand = data[0];
+                                setDemand(refreshedDemand);
+
+                                // Update form with fresh data
+                                form.setFieldsValue({
+                                    title: refreshedDemand.title,
+                                    description: refreshedDemand.description,
+                                    min: refreshedDemand.price_range?.min,
+                                    max: refreshedDemand.price_range?.max,
+                                    days: refreshedDemand.date_range?.days || [],
+                                    category: refreshedDemand.category,
+                                    note: refreshedDemand.note,
+                                    status: refreshedDemand.status,
+                                    contacts: refreshedDemand.contact_info?.contacts || [],
+                                });
+                            }
+
                             messageApi.success('Duyệt dịch vụ thành công');
                             setLoading(false);
                             setPostConfirmModalVisible(true);

@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Input, Button, Space, message, Checkbox, Spin, Card } from 'antd';
-import { ArrowLeftOutlined } from '@ant-design/icons';
+import { Form, Input, Button, Space, message, Checkbox, Spin, Card, Row, Col, Image, Typography, Divider, Modal } from 'antd';
+import { ArrowLeftOutlined, DeleteOutlined, EyeOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router';
 import RichtextEditor from '../../components/RichtextEditor';
 import Dropzone from '../../components/Dropzone';
 import { getDemandById, updateDemandById } from '../../services/item.service';
+
+const { Title, Text } = Typography;
 
 const DemandPostEditor = () => {
     const navigate = useNavigate();
@@ -13,6 +15,9 @@ const DemandPostEditor = () => {
     const [loading, setLoading] = useState(false);
     const [demand, setDemand] = useState(null);
     const [messageApi, contextHolder] = message.useMessage();
+    const [previewVisible, setPreviewVisible] = useState(false);
+    const [previewImage, setPreviewImage] = useState('');
+    const [currentImages, setCurrentImages] = useState([]);
 
     useEffect(() => {
         const loadDemand = async () => {
@@ -27,6 +32,7 @@ const DemandPostEditor = () => {
 
                 const demandData = data[0];
                 setDemand(demandData);
+                setCurrentImages(demandData.image_urls || []);
 
                 form.setFieldsValue({
                     post_content: demandData.post_content || '',
@@ -59,7 +65,7 @@ const DemandPostEditor = () => {
             const { error } = await updateDemandById(id, updatedDemand);
             if (error) throw error;
 
-            messageApi.success('Bài đăng đã được tạo thành công');
+            messageApi.success('Bài đăng đã được ' + (values.is_public ? 'hiển thị công khai' : 'ẩn khỏi trang chính'));
 
             if (demand.status === 'pending') {
                 messageApi.success('Nhu cầu đã được xác minh thành công');
@@ -79,6 +85,33 @@ const DemandPostEditor = () => {
 
     const handleCancel = () => {
         navigate(`/manage-demand/${id}`);
+    };
+
+    const handleImageChange = (newImages) => {
+        setCurrentImages(newImages);
+        form.setFieldsValue({ image_urls: newImages });
+    };
+
+    const handleRemoveImage = (imageUrl) => {
+        Modal.confirm({
+            title: 'Xác nhận xóa ảnh',
+            icon: <ExclamationCircleOutlined />,
+            content: 'Bạn có chắc chắn muốn xóa ảnh này?',
+            okText: 'Xóa',
+            okType: 'danger',
+            cancelText: 'Hủy',
+            onOk() {
+                const newImages = currentImages.filter(url => url !== imageUrl);
+                setCurrentImages(newImages);
+                form.setFieldsValue({ image_urls: newImages });
+                message.success('Đã xóa ảnh');
+            }
+        });
+    };
+
+    const handlePreview = (imageUrl) => {
+        setPreviewImage(imageUrl);
+        setPreviewVisible(true);
     };
 
     return (
@@ -121,19 +154,83 @@ const DemandPostEditor = () => {
                             <RichtextEditor />
                         </Form.Item>
 
-                        <Form.Item label="Hình ảnh" name="image_urls">
-                            <Dropzone maxFiles={5} bucket="images" />
+                        <Divider orientation="left">Quản lý hình ảnh</Divider>
+
+                        {/* Current Image Gallery */}
+                        {currentImages.length > 0 && (
+                            <div style={{ marginBottom: 24 }}>
+                                <Title level={5}>Hình ảnh hiện tại</Title>
+                                <Row gutter={[16, 16]}>
+                                    {currentImages.map((url, index) => (
+                                        <Col xs={24} sm={12} md={8} lg={6} key={index}>
+                                            <div
+                                                style={{
+                                                    border: '1px solid #f0f0f0',
+                                                    borderRadius: '4px',
+                                                    padding: '8px',
+                                                    position: 'relative'
+                                                }}
+                                            >
+                                                <Image
+                                                    src={url}
+                                                    alt={`Image ${index + 1}`}
+                                                    style={{
+                                                        width: '100%',
+                                                        height: '150px',
+                                                        objectFit: 'cover',
+                                                    }}
+                                                    preview={false}
+                                                />
+                                                <div
+                                                    style={{
+                                                        marginTop: 8,
+                                                        display: 'flex',
+                                                        justifyContent: 'space-between'
+                                                    }}
+                                                >
+                                                    <Button
+                                                        size="small"
+                                                        icon={<EyeOutlined />}
+                                                        onClick={() => handlePreview(url)}
+                                                    >
+                                                        Xem
+                                                    </Button>
+                                                    <Button
+                                                        size="small"
+                                                        danger
+                                                        icon={<DeleteOutlined />}
+                                                        onClick={() => handleRemoveImage(url)}
+                                                    >
+                                                        Xóa
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        </Col>
+                                    ))}
+                                </Row>
+                            </div>
+                        )}
+
+                        <Form.Item label="Thêm hình ảnh mới" name="image_urls">
+                            <Dropzone
+                                maxFiles={5}
+                                bucket="images"
+                                value={currentImages}
+                                onChange={handleImageChange}
+                            />
                         </Form.Item>
+                        <Text type="secondary">Tải lên tối đa 5 hình ảnh. Hình ảnh nên rõ nét và hiển thị đầy đủ sản phẩm/dịch vụ.</Text>
 
                         <Form.Item
                             name="is_public"
                             valuePropName="checked"
+                            style={{ marginTop: 24 }}
                         >
                             <Checkbox>Hiển thị bài đăng công khai</Checkbox>
                         </Form.Item>
 
                         <Form.Item>
-                            <Space>
+                            <Space size="middle">
                                 <Button type="primary" htmlType="submit" loading={loading}>
                                     {demand?.post_content ? "Cập nhật" : "Tạo"}
                                 </Button>
@@ -145,6 +242,18 @@ const DemandPostEditor = () => {
                     </Form>
                 )}
             </Card>
+
+            {/* Image Preview Modal */}
+            <Image
+                width={0}
+                style={{ display: 'none' }}
+                src={previewImage}
+                preview={{
+                    visible: previewVisible,
+                    src: previewImage,
+                    onVisibleChange: (visible) => setPreviewVisible(visible),
+                }}
+            />
         </>
     );
 };
