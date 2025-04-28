@@ -136,7 +136,7 @@ const TableData = ({
             description={
                 loading ? (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                        <Spin size="large" style={{ marginBottom: 16 }} />
+                        {/* <Spin size="large" style={{ marginBottom: 16 }} /> */}
                         <span>Đang tải dữ liệu...</span>
                     </div>
                 ) : (
@@ -191,9 +191,9 @@ const TableData = ({
                 }}
                 loading={loading}
                 rowClassName={() => expandedView ? 'expanded-row' : ''}
-                locale={{
-                    emptyText: customEmpty()
-                }}
+            // locale={{
+            //     emptyText: customEmpty()
+            // }}
             />
         </div>
     );
