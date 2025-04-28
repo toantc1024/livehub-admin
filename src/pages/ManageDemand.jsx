@@ -19,18 +19,91 @@ const ManageDemand = () => {
 
     const handleExportDemands = async () => {
         try {
-            const { data, error } = await getAllDemandsCSV();
-            if (error) {
-                message.error('Lỗi khi xuất CSV nhu cầu: ' + error.message);
+            if (!demands || demands.length === 0) {
+                message.error('Không có dữ liệu nhu cầu để xuất');
                 return;
             }
-            const blob = new Blob([data], { type: 'text/csv;charset=utf-8;' });
+
+            // Define Vietnamese headers
+            const headers = [
+                'Tên nhu cầu',
+                'Mô tả',
+                'Thời gian bắt đầu',
+                'Thời gian kết thúc',
+                'Giá tối thiểu',
+                'Giá tối đa',
+                'Đơn vị tiền tệ',
+                'Danh mục',
+                'Trạng thái',
+                'Ngày tạo',
+                'Cần tư vấn',
+                'Ghi chú',
+                'ID chủ sở hữu',
+                'Email chủ sở hữu',
+                'Tên chủ sở hữu'
+            ];
+
+            // Transform demands data to CSV rows
+            const csvRows = demands.map(demand => {
+                // Format status in Vietnamese
+                let status = 'Không xác định';
+                if (demand.status === 'approved') status = 'Đã duyệt';
+                else if (demand.status === 'pending') status = 'Chờ duyệt';
+                else if (demand.status === 'rejected') status = 'Từ chối';
+
+                // Format time slots
+                const startTime = demand.selected_time_slots?.start ?
+                    new Date(demand.selected_time_slots.start).toLocaleString('vi-VN') : 'Trống';
+                const endTime = demand.selected_time_slots?.end ?
+                    new Date(demand.selected_time_slots.end).toLocaleString('vi-VN') : 'Trống';
+
+                // Escape fields that might contain commas or quotes
+                const escapeField = (field) => {
+                    if (field === null || field === undefined) return 'Trống';
+                    const str = String(field);
+                    if (str.trim() === '') return 'Trống';
+                    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+                        return `"${str.replace(/"/g, '""')}"`;
+                    }
+                    return str;
+                };
+
+                return [
+                    escapeField(demand.title),
+                    escapeField(demand.description),
+                    escapeField(startTime),
+                    escapeField(endTime),
+                    escapeField(demand.price_range?.min || 'Trống'),
+                    escapeField(demand.price_range?.max || 'Trống'),
+                    escapeField(demand.price_range?.currency || 'VND'),
+                    escapeField(demand.category),
+                    escapeField(status),
+                    escapeField(new Date(demand.created_at).toLocaleDateString('vi-VN')),
+                    escapeField(demand.need_support ? 'Có' : 'Không'),
+                    escapeField(demand.note),
+                    escapeField(demand.owner_id),
+                    escapeField(demand.owner?.email),
+                    escapeField(demand.owner?.raw_user_meta_data?.fullName)
+                ].join(',');
+            });
+
+            // Combine headers and rows
+            const csvContent = [headers.join(','), ...csvRows].join('\n');
+
+            // Add UTF-8 BOM for proper Vietnamese character display
+            const BOM = '\uFEFF';
+            const csvWithBOM = BOM + csvContent;
+
+            // Create and download the file
+            const blob = new Blob([csvWithBOM], { type: 'text/csv;charset=utf-8;' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'demands.csv';
+            a.download = 'nhu_cau.csv';
             a.click();
             window.URL.revokeObjectURL(url);
+
+            message.success('Xuất CSV nhu cầu thành công');
         } catch (err) {
             message.error('Lỗi khi xuất CSV nhu cầu: ' + err.message);
         }
@@ -105,6 +178,25 @@ const ManageDemand = () => {
             title: 'Mô tả',
             dataIndex: 'description',
             width: 150,
+            ellipsis: {
+                showTitle: false,
+            },
+            render: (text) => (
+                <span title={text}>{text}</span>
+            )
+        },
+        {
+            title: 'Thời gian',
+            dataIndex: 'selected_time_slots',
+            width: 150,
+            render: (timeSlots) => {
+                if (!timeSlots) return '-';
+                return (
+                    <span title={JSON.stringify(timeSlots)}>
+                        {timeSlots.start ? new Date(timeSlots.start).toLocaleString() : '-'} - {timeSlots.end ? new Date(timeSlots.end).toLocaleString() : '-'}
+                    </span>
+                );
+            }
         },
         {
             title: 'Giá',

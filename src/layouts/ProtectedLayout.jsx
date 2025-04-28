@@ -8,8 +8,10 @@ import {
     TeamOutlined,
     UserOutlined,
     LogoutOutlined,
+    MenuUnfoldOutlined,
+    MenuFoldOutlined,
 } from '@ant-design/icons';
-import { Breadcrumb, Layout, Menu, theme, ConfigProvider } from 'antd';
+import { Breadcrumb, Layout, Menu, theme, ConfigProvider, Button } from 'antd';
 import useAuthStore from '../stores/auth.store';
 const { Header, Content, Footer, Sider } = Layout;
 function getItem(label, key, icon, children) {
@@ -30,14 +32,15 @@ const items = [
 const siderStyle = {
     overflow: 'auto',
     height: '100vh',
-    position: 'sticky',
-    insetInlineStart: 0,
+    position: 'fixed',
+    left: 0,
     top: 0,
     bottom: 0,
     scrollbarWidth: 'thin',
     scrollbarGutter: 'stable',
     backgroundColor: '#fff',
     boxShadow: '2px 0 8px rgba(0,0,0,0.1)',
+    zIndex: 100,
 };
 
 // Custom theme
@@ -53,26 +56,60 @@ const customTheme = {
 
 const App = () => {
     const [collapsed, setCollapsed] = useState(false);
+    const [isMobile, setIsMobile] = useState(false);
     const navigate = useNavigate();
     const user = useAuthStore((state) => state.user);
     const clearUser = useAuthStore((state) => state.clearUser);
+
+    // Check if screen size is mobile
+    useEffect(() => {
+        const checkIsMobile = () => {
+            setIsMobile(window.innerWidth <= 768);
+            if (window.innerWidth <= 768) {
+                setCollapsed(true);
+            }
+        };
+
+        // Initial check
+        checkIsMobile();
+
+        // Add event listener for window resize
+        window.addEventListener('resize', checkIsMobile);
+
+        // Cleanup
+        return () => window.removeEventListener('resize', checkIsMobile);
+    }, []);
+
     useEffect(() => {
         if (!user) {
             navigate('/login');
         }
     }, [user]);
+
     const currentPath = useLocation();
     const [selectedKeys, setSelectedKeys] = useState([]);
+
     useEffect(() => {
         setSelectedKeys(currentPath.pathname.split('/').filter(Boolean));
     }, [currentPath]);
+
+    const toggleSider = () => {
+        setCollapsed(!collapsed);
+    };
+
     return (
         <ConfigProvider theme={customTheme}>
             <Layout style={{ minHeight: '100vh' }}>
                 <Sider
-                    style={siderStyle}
+                    style={{
+                        ...siderStyle,
+                        display: isMobile && collapsed ? 'none' : 'block',
+                    }}
                     theme="light"
-                    collapsed={collapsed} onCollapse={value => setCollapsed(value)}>
+                    collapsed={collapsed}
+                    collapsible
+                    breakpoint="lg"
+                    onCollapse={value => setCollapsed(value)}>
                     <div
                         style={{
                             padding: '24px 0',
@@ -93,6 +130,9 @@ const App = () => {
                                 navigate(item.key);
                             }
                             setSelectedKeys([item.key]);
+                            if (isMobile) {
+                                setCollapsed(true);
+                            }
                         }}
                         theme="light"
                         selectedKeys={selectedKeys}
@@ -100,18 +140,30 @@ const App = () => {
                         items={items}
                     />
                 </Sider>
-                <Layout>
+                <Layout style={{ marginLeft: isMobile ? 0 : (collapsed ? 80 : 200), transition: 'margin-left 0.2s' }}>
                     <div
                         style={{
-                            padding: '12px 24px',
+                            padding: isMobile ? '8px 16px' : '12px 24px',
                             background: '#fff',
                             boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
                             display: 'flex',
+                            flexDirection: isMobile ? 'column' : 'row',
                             justifyContent: 'space-between',
-                            alignItems: 'center',
+                            alignItems: isMobile ? 'flex-start' : 'center',
+                            gap: isMobile ? '8px' : 0,
                         }}
                     >
-                        <h2 style={{ margin: 0, color: '#f5770b' }}>Hệ thống quản trị</h2>
+                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                            {isMobile && (
+                                <Button
+                                    type="text"
+                                    icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+                                    onClick={toggleSider}
+                                    style={{ marginRight: 16, fontSize: 16 }}
+                                />
+                            )}
+                            <h2 style={{ margin: 0, color: '#f5770b', fontSize: isMobile ? '18px' : '24px' }}>Hệ thống quản trị</h2>
+                        </div>
                         {user && (
                             <div style={{ display: 'flex', alignItems: 'center' }}>
                                 <UserOutlined style={{ color: '#f5770b', fontSize: 16, marginRight: 8 }} />
@@ -122,9 +174,9 @@ const App = () => {
                     <Content style={{ margin: '0', overflow: 'initial', background: '#fff9f0' }}>
                         <div
                             style={{
-                                padding: 24,
+                                padding: isMobile ? 16 : 24,
                                 background: '#ffffff',
-                                margin: 24,
+                                margin: isMobile ? 12 : 24,
                                 borderRadius: 8,
                                 boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
                             }}
@@ -136,7 +188,8 @@ const App = () => {
                         textAlign: 'center',
                         background: '#fff',
                         color: '#666',
-                        borderTop: '1px solid #ffd8a8'
+                        borderTop: '1px solid #ffd8a8',
+                        padding: isMobile ? '12px' : '24px'
                     }}>
                         LiveHub ©{new Date().getFullYear()} - MARG
                     </Footer>

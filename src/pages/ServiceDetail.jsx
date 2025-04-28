@@ -11,13 +11,13 @@ import Dropzone from '../components/Dropzone';
 import { getAllServiceRentalByServiceId, getAllServiceRentalByServiceIdCSV, updateServiceRentalById } from '../services/service_rental.service';
 
 const WEEKDAYS = [
-    { label: 'Monday', value: 'mon' },
-    { label: 'Tuesday', value: 'tue' },
-    { label: 'Wednesday', value: 'wed' },
-    { label: 'Thursday', value: 'thu' },
-    { label: 'Friday', value: 'fri' },
-    { label: 'Saturday', value: 'sat' },
-    { label: 'Sunday', value: 'sun' },
+    { label: 'Thứ Hai', value: 'mon' },
+    { label: 'Thứ Ba', value: 'tue' },
+    { label: 'Thứ Tư', value: 'wed' },
+    { label: 'Thứ Năm', value: 'thu' },
+    { label: 'Thứ Sáu', value: 'fri' },
+    { label: 'Thứ Bảy', value: 'sat' },
+    { label: 'Chủ Nhật', value: 'sun' },
 ];
 
 const STATUS_OPTIONS = [
@@ -47,8 +47,15 @@ const ServiceDetail = () => {
     // State for editable calendar in rental modal
     const [editableSlots, setEditableSlots] = useState([]);
     useEffect(() => {
-        if (selectedRental && selectedRental.selected_time_slots?.slots) {
-            setEditableSlots(selectedRental.selected_time_slots.slots.map(s => s.split('T')[0]));
+        if (selectedRental) {
+            if (selectedRental.selected_time_slots?.slots) {
+                setEditableSlots(selectedRental.selected_time_slots.slots.map(s => s.split('T')[0]));
+            } else if (selectedRental.selected_time_slots?.start && selectedRental.selected_time_slots?.end) {
+                const dates = getSelectedDates(selectedRental.selected_time_slots);
+                setEditableSlots(dates);
+            } else {
+                setEditableSlots([]);
+            }
         } else {
             setEditableSlots([]);
         }
@@ -81,6 +88,7 @@ const ServiceDetail = () => {
                     description: data.description,
                     min: data.price_range?.min,
                     max: data.price_range?.max,
+                    days: data.date_range?.days || [],
                     category: data.category,
                     note: data.note,
                     status: data.status,
@@ -261,17 +269,132 @@ const ServiceDetail = () => {
 
     const handleExportRentals = async () => {
         try {
-            const csvData = await getAllServiceRentalByServiceIdCSV(id);
-            const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+            // Define Vietnamese headers
+            const headers = [
+                'Tên dịch vụ',
+                'Tên nhà cung cấp',
+                'Tên người thuê',
+                'Danh sách ngày chọn',
+                'Email',
+                'Địa chỉ',
+                'Số điện thoại',
+                'Giá mong muốn',
+                'Trạng thái',
+                'Ghi chú',
+                'Trải nghiệm trước đây',
+                'Ngày tạo'
+            ];
+
+            // Transform rentalList data to CSV rows
+            const csvRows = rentalList.map(rental => {
+                const contactInfo = parseContactInfo(rental.contact_info);
+                const dates = getSelectedDates(rental.selected_time_slots)
+                    .map(date => formatDateToWeekday(date))
+                    .join('; ');
+
+                const renterName = contactInfo.name || rental.buyer?.raw_user_meta_data?.fullName || 'Trống';
+                const email = contactInfo.email || rental.buyer?.raw_user_meta_data?.email || 'Trống';
+                const address = contactInfo.address || 'Trống';
+                const phone = contactInfo.phone || 'Trống';
+
+                let status = 'Chưa duyệt';
+                if (rental.status === 'approved') status = 'Đã duyệt';
+                else if (rental.status === 'pending') status = 'Chờ duyệt';
+
+                const priceRange = rental.expect_price_range ?
+                    `${CurrencyFormat(rental.expect_price_range.min)} - ${CurrencyFormat(rental.expect_price_range.max)}` : 'Trống';
+
+                // Escape fields that might contain commas or quotes
+                const escapeField = (field) => {
+                    if (field === null || field === undefined) return 'Trống';
+                    const str = String(field);
+                    if (str.trim() === '') return 'Trống';
+                    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+                        return `"${str.replace(/"/g, '""')}"`;
+                    }
+                    return str;
+                };
+
+                return [
+                    escapeField(rental.item?.title),
+                    escapeField(rental.item?.owner?.raw_user_meta_data?.fullName),
+                    escapeField(renterName),
+                    dates.length > 0 ? escapeField(dates) : 'Trống',
+                    escapeField(email),
+                    escapeField(address),
+                    escapeField(phone),
+                    escapeField(priceRange),
+                    escapeField(status),
+                    escapeField(rental.note),
+                    escapeField(rental.previous_service_experience),
+                    escapeField(new Date(rental.created_at).toLocaleDateString('vi-VN'))
+                ].join(',');
+            });
+
+            // Combine headers and rows
+            const csvContent = [headers.join(','), ...csvRows].join('\n');
+
+            // Add UTF-8 BOM for proper Vietnamese character display
+            const BOM = '\uFEFF';
+            const csvWithBOM = BOM + csvContent;
+
+            // Create and download the file
+            const blob = new Blob([csvWithBOM], { type: 'text/csv;charset=utf-8;' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `service_${id}_rentals.csv`;
+            a.download = `danh_sach_thue_${id}.csv`;
             a.click();
             window.URL.revokeObjectURL(url);
+
+            messageApi.success('Xuất CSV thành công');
         } catch (err) {
             message.error('Lỗi khi xuất CSV thuê dịch vụ: ' + err.message);
         }
+    };
+
+    // Helper to parse contact info which might be string or object
+    const parseContactInfo = (contactInfo) => {
+        if (!contactInfo) return {};
+        if (typeof contactInfo === 'string') {
+            try {
+                return JSON.parse(contactInfo);
+            } catch {
+                return {};
+            }
+        }
+        return contactInfo;
+    };
+
+    // Helper to get selected dates from different time slot formats
+    const getSelectedDates = (timeSlots) => {
+        if (!timeSlots) return [];
+
+        if (timeSlots.slots) {
+            return timeSlots.slots.map(slot => slot.split('T')[0]);
+        }
+
+        if (timeSlots.start && timeSlots.end) {
+            const start = new Date(timeSlots.start);
+            const end = new Date(timeSlots.end);
+            const dates = [];
+
+            for (let dt = new Date(start); dt <= end; dt.setDate(dt.getDate() + 1)) {
+                dates.push(dt.toISOString().split('T')[0]);
+            }
+
+            return dates;
+        }
+
+        return [];
+    };
+
+    // Helper to format dates to Vietnamese weekday names
+    const formatDateToWeekday = (dateStr) => {
+        const date = new Date(dateStr);
+        const day = date.getDay();
+        const weekdays = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+        return `${weekdays[day]} (${dateStr})`;
     };
 
     // Open calendar modal to view all service rentals
@@ -305,20 +428,31 @@ const ServiceDetail = () => {
         return null;
     };
 
+    const options = [];
+
+    for (let i = 10; i < 36; i++) {
+        options.push({
+            value: i.toString(36) + i,
+            label: i.toString(36) + i,
+        });
+    }
+
     // Check for duplicates when viewing a specific rental
     const checkRentalForDuplicates = (rental) => {
-        if (!rental || !rental.selected_time_slots?.slots || !rentalList || rentalList.length < 2) {
+        if (!rental || !rentalList || rentalList.length < 2) {
             return false;
         }
 
-        const rentalDates = rental.selected_time_slots.slots.map(slot => slot.split('T')[0]);
+        const rentalDates = getSelectedDates(rental.selected_time_slots);
+        if (rentalDates.length === 0) return false;
 
         // Check if any other rental has the same dates
         const otherRentals = rentalList.filter(r => r.id !== rental.id);
 
         for (const date of rentalDates) {
             for (const otherRental of otherRentals) {
-                if (otherRental.selected_time_slots?.slots?.some(slot => slot.split('T')[0] === date)) {
+                const otherDates = getSelectedDates(otherRental.selected_time_slots);
+                if (otherDates.includes(date)) {
                     return true;
                 }
             }
@@ -329,13 +463,33 @@ const ServiceDetail = () => {
 
     const rentalColumns = [
         {
-            title: 'Ghi chú',
-            dataIndex: 'note',
+            title: 'Tên dịch vụ',
+            dataIndex: 'item',
+            render: (item) => item?.title || '',
+            width: 150,
+        },
+        {
+            title: 'Tên nhà cung cấp',
+            dataIndex: 'item',
+            render: (item) => item?.owner?.raw_user_meta_data?.fullName || '',
+            width: 150,
+        },
+        {
+            title: 'Tên người thuê',
+            dataIndex: 'buyer',
+            render: (buyer, record) => {
+                // Try to get name from contact_info first, then fall back to user metadata
+                const contactInfo = parseContactInfo(record.contact_info);
+                if (contactInfo.name) return contactInfo.name;
+                return buyer?.raw_user_meta_data?.fullName || '';
+            },
+            width: 150,
         },
         {
             title: 'Khoảng giá mong muốn',
             dataIndex: 'expect_price_range',
             render: (val) => val ? `${CurrencyFormat(val.min)} - ${CurrencyFormat(val.max)}` : '',
+            width: 150,
         },
         {
             title: 'Trạng thái',
@@ -351,15 +505,25 @@ const ServiceDetail = () => {
                     text = 'Chờ duyệt';
                 }
                 return <Tag color={color}>{text}</Tag>;
-            }
+            },
+            width: 100,
         },
         {
-            title: 'Tên người thuê',
-            dataIndex: 'name',
+            title: 'Ngày tạo',
+            dataIndex: 'created_at',
+            render: (date) => date ? new Date(date).toLocaleDateString('vi-VN') : '',
+            width: 100,
+        },
+        {
+            title: 'Ghi chú',
+            dataIndex: 'note',
+            width: 150,
         },
         {
             title: 'Thao tác',
             key: 'action',
+            fixed: 'right',
+            width: 100,
             render: (_, record) => (
                 <Space>
                     <Button size="small" onClick={() => {
@@ -393,7 +557,15 @@ const ServiceDetail = () => {
                     <Tabs type="card">
                         <Tabs.TabPane tab='Thông tin dịch vụ' key='1'>
                             <Divider>
-                                <Space style={{ marginLeft: 16 }}>
+                                <Space
+                                    style={{
+                                        marginLeft: 16,
+                                        flexWrap: 'wrap',
+                                        justifyContent: 'center'
+                                    }}
+                                    size={[8, 8]}
+                                    wrap
+                                >
                                     {!editMode ? (
                                         <>
                                             <Button
@@ -477,7 +649,23 @@ const ServiceDetail = () => {
                                     <InputNumber min={0} style={{ width: '100%' }} addonAfter="VND" />
                                 </Form.Item>
                                 <Form.Item label="Ngày cho thuê trong tuần" name="days">
-                                    <Select mode="multiple" options={WEEKDAYS} placeholder="Chọn ngày" />
+                                    <Select
+                                        mode="multiple"
+                                        options={[
+                                            { label: 'Thứ Hai', value: 'mon' },
+                                            { label: 'Thứ Ba', value: 'tue' },
+                                            { label: 'Thứ Tư', value: 'wed' },
+                                            { label: 'Thứ Năm', value: 'thu' },
+                                            { label: 'Thứ Sáu', value: 'fri' },
+                                            { label: 'Thứ Bảy', value: 'sat' },
+                                            { label: 'Chủ Nhật', value: 'sun' },
+                                        ]}
+                                        onChange={(value) => {
+                                            form.setFieldsValue({ days: value });
+                                        }}
+                                        value={service?.date_range?.days || []}
+                                        placeholder="Chọn ngày"
+                                    />
                                 </Form.Item>
                                 <Form.Item label="Danh mục" name="category">
                                     <Input />
@@ -556,17 +744,11 @@ const ServiceDetail = () => {
                                                     <MinusCircleOutlined onClick={() => remove(field.name)} style={{ color: '#ff4d4f', fontSize: 18, cursor: 'pointer' }} />
                                                 </div>
                                             ))}
-                                            <Form.Item style={{ marginBottom: 0 }}>
-                                                <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
-                                                    Thêm liên hệ
-                                                </Button>
-                                            </Form.Item>
+
                                         </div>
                                     )}
                                 </Form.List>
                             </Form>
-
-
                         </Tabs.TabPane>
                         <Tabs.TabPane tab='Danh sách người thuê' key='2'>
                             {/* Alert for duplicate rentals */}
@@ -596,7 +778,8 @@ const ServiceDetail = () => {
                                 handleTableChange={() => { }}
                                 pageSize={50}
                                 searchable={true}
-                                searchField="name"
+                                searchField="note"
+                                scroll={{ x: 1200 }}
                             />
                         </Tabs.TabPane>
                     </Tabs>
@@ -627,9 +810,6 @@ const ServiceDetail = () => {
                         {service?.contact_info?.contacts?.map((c, idx) => (
                             <div key={idx}>{c.platform}: {c.value}</div>
                         ))}
-                    </Descriptions.Item>
-                    <Descriptions.Item label="Nội dung bài đăng">
-                        <pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{service?.post_content}</pre>
                     </Descriptions.Item>
                     <Descriptions.Item label="Hình ảnh">
                         <Image.PreviewGroup>
@@ -678,17 +858,38 @@ const ServiceDetail = () => {
                     }}>Duyệt</Button>,
                     <Button key="close" onClick={() => setRentalDetailModal(false)}>Đóng</Button>
                 ] : [<Button key="close" onClick={() => setRentalDetailModal(false)}>Đóng</Button>]}
+                width={1000}
             >
                 {selectedRental && (
-                    <Descriptions bordered column={1} size="small">
-                        <Descriptions.Item label="Ghi chú">{selectedRental.note}</Descriptions.Item>
-                        <Descriptions.Item label="Liên hệ">
-                            {service?.contact_info?.contacts?.map((c, idx) => (
-                                <div key={idx}>{c.platform}: {c.value}</div>
-                            ))}
-                        </Descriptions.Item>
+                    <Descriptions
+                        bordered
+                        column={1}
+                        size="small"
+                        labelStyle={{ whiteSpace: 'nowrap' }}
+                    >
+                        <Descriptions.Item label="Tên dịch vụ">{selectedRental.item?.title}</Descriptions.Item>
+                        <Descriptions.Item label="Tên nhà cung cấp">{selectedRental.item?.owner?.raw_user_meta_data?.fullName}</Descriptions.Item>
+                        <Descriptions.Item label="Tên người thuê">{selectedRental.buyer?.raw_user_meta_data?.fullName}</Descriptions.Item>
+                        <Descriptions.Item label="Ghi chú cho quản trị viên">{selectedRental.note}</Descriptions.Item>
                         <Descriptions.Item label="Khoảng giá mong muốn">
-                            {CurrencyFormat(selectedRental?.expect_price_range?.min)} - {CurrencyFormat(selectedRental?.expect_price_range?.max)} </Descriptions.Item>
+                            {CurrencyFormat(selectedRental?.expect_price_range?.min)} - {CurrencyFormat(selectedRental?.expect_price_range?.max)}
+                        </Descriptions.Item>
+                        <Descriptions.Item label="Thông tin liên hệ">
+                            {(() => {
+                                const contactInfo = parseContactInfo(selectedRental.contact_info);
+                                return (
+                                    <div>
+                                        {contactInfo.name && <div><strong>Tên:</strong> {contactInfo.name}</div>}
+                                        {contactInfo.email && <div><strong>Email:</strong> {contactInfo.email}</div>}
+                                        {contactInfo.phone && <div><strong>Số điện thoại:</strong> {contactInfo.phone}</div>}
+                                        {contactInfo.address && <div><strong>Địa chỉ:</strong> {contactInfo.address}</div>}
+                                        {selectedRental.buyer?.raw_user_meta_data?.email && <div><strong>Email đăng ký:</strong> {selectedRental.buyer.raw_user_meta_data.email}</div>}
+                                        {selectedRental.buyer?.raw_user_meta_data?.address && <div><strong>Địa chỉ đăng ký:</strong> {selectedRental.buyer.raw_user_meta_data.address}</div>}
+                                    </div>
+                                );
+                            })()}
+                        </Descriptions.Item>
+                        <Descriptions.Item label="Trải nghiệm trước đây">{selectedRental.previous_service_experience}</Descriptions.Item>
                         <Descriptions.Item label="Trạng thái">
                             {(() => {
                                 let color = 'red';
@@ -701,6 +902,18 @@ const ServiceDetail = () => {
                                     text = 'Chờ duyệt';
                                 }
                                 return <Tag color={color}>{text}</Tag>;
+                            })()}
+                        </Descriptions.Item>
+                        <Descriptions.Item label="Danh sách ngày đã chọn">
+                            {(() => {
+                                const dates = getSelectedDates(selectedRental.selected_time_slots);
+                                return (
+                                    <div>
+                                        {dates.map((date, index) => (
+                                            <div key={index}>{formatDateToWeekday(date)}</div>
+                                        ))}
+                                    </div>
+                                );
                             })()}
                         </Descriptions.Item>
                         <Descriptions.Item label="Khoảng thời gian đã chọn">

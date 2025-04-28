@@ -195,34 +195,119 @@ const DemandDetail = () => {
         }
     };
 
+    // Helper to parse contact info which might be string or object
+    const parseContactInfo = (contactInfo) => {
+        if (!contactInfo) return {};
+        if (typeof contactInfo === 'string') {
+            try {
+                return JSON.parse(contactInfo);
+            } catch {
+                return {};
+            }
+        }
+        return contactInfo;
+    };
+
     const handleExportRentals = async () => {
         try {
-            const csvData = await getAllDemandApplicationsByDemandIdCSV(id);
-            const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+            // Define Vietnamese headers
+            const headers = [
+                'Tên người ứng tuyển',
+                'Tên nhu cầu ứng tuyển',
+                'Email',
+                'Địa chỉ',
+                'Số điện thoại',
+                'Chương trình khuyến mãi',
+                'Trạng thái',
+                'Ghi chú',
+                'Ngày tạo'
+            ];
+
+            // Transform demandList data to CSV rows
+            const csvRows = demandList.map(application => {
+                const contactInfo = parseContactInfo(application.contact_info);
+
+                const supplierName = application.supplier?.raw_user_meta_data?.fullName || 'Trống';
+                const demandTitle = application.demand?.title || 'Trống';
+                const email = contactInfo.email || application.supplier?.raw_user_meta_data?.email || 'Trống';
+                const address = contactInfo.address || 'Trống';
+                const phone = contactInfo.phone || 'Trống';
+
+                let status = 'Chưa duyệt';
+                if (application.status === 'approved') status = 'Đã duyệt';
+                else if (application.status === 'pending') status = 'Chờ duyệt';
+                else if (application.status === 'rejected') status = 'Từ chối';
+
+                // Escape fields that might contain commas or quotes
+                const escapeField = (field) => {
+                    if (field === null || field === undefined) return 'Trống';
+                    const str = String(field);
+                    if (str.trim() === '') return 'Trống';
+                    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+                        return `"${str.replace(/"/g, '""')}"`;
+                    }
+                    return str;
+                };
+
+                return [
+                    escapeField(supplierName),
+                    escapeField(demandTitle),
+                    escapeField(email),
+                    escapeField(address),
+                    escapeField(phone),
+                    escapeField(application.promote_text),
+                    escapeField(status),
+                    escapeField(application.note),
+                    escapeField(new Date(application.created_at).toLocaleDateString('vi-VN'))
+                ].join(',');
+            });
+
+            // Combine headers and rows
+            const csvContent = [headers.join(','), ...csvRows].join('\n');
+
+            // Add UTF-8 BOM for proper Vietnamese character display
+            const BOM = '\uFEFF';
+            const csvWithBOM = BOM + csvContent;
+
+            // Create and download the file
+            const blob = new Blob([csvWithBOM], { type: 'text/csv;charset=utf-8;' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `demand_${id}_demands.csv`;
+            a.download = `ung_tuyen_nhu_cau_${id}.csv`;
             a.click();
             window.URL.revokeObjectURL(url);
+
+            messageApi.success('Xuất CSV thành công');
         } catch (err) {
-            message.error('Lỗi khi xuất CSV thuê dịch vụ: ' + err.message);
+            message.error('Lỗi khi xuất CSV ứng tuyển: ' + err.message);
         }
     };
 
     const demandColumns = [
         {
+            title: 'Tên người ứng tuyển',
+            dataIndex: 'supplier',
+            render: (supplier) => supplier?.raw_user_meta_data?.fullName || 'Trống',
+            width: 150,
+        },
+        {
+            title: 'Tên nhu cầu',
+            dataIndex: 'demand',
+            render: (demand) => demand?.title || 'Trống',
+            width: 150,
+        },
+        {
+            title: 'Chương trình khuyến mãi',
+            dataIndex: 'promote_text',
+            ellipsis: true,
+            width: 150,
+        },
+        {
             title: 'Ghi chú',
             dataIndex: 'note',
-        },
-        {
-            title: 'Khoảng giá mong muốn',
-            dataIndex: 'expect_price_range',
-            render: (val) => val ? `${CurrencyFormat(val.min)} - ${CurrencyFormat(val.max)}` : '',
-        },
-        {
-            title: 'Tên người đăng',
-            dataIndex: 'name',
+            ellipsis: true,
+            width: 150,
         },
         {
             title: 'Trạng thái',
@@ -238,23 +323,23 @@ const DemandDetail = () => {
                     text = 'Chờ duyệt';
                 }
                 return <Tag color={color}>{text}</Tag>;
-            }
+            },
+            width: 100,
+        },
+        {
+            title: 'Ngày tạo',
+            dataIndex: 'created_at',
+            render: (date) => date ? new Date(date).toLocaleDateString('vi-VN') : '',
+            width: 100,
         },
         {
             title: 'Thao tác',
             key: 'action',
+            fixed: 'right',
+            width: 100,
             render: (_, record) => (
-                <Button size="small" onClick={async () => {
+                <Button size="small" onClick={() => {
                     setSelectedDemand(record);
-                    let newSelectedDemand = { ...record };
-                    try {
-                        const { data, error } = await supabase.auth.admin.getUserById(record.supplier_id);
-                        if (error) throw error;
-                        newSelectedDemand.user = data.user;
-                        setSelectedDemand(newSelectedDemand);
-                    } catch (error) {
-                        message.error('Lỗi khi lấy thông tin người dùng: ' + error.message);
-                    }
                     setDemandApplicationDetailModal(true);
                 }}>Xem chi tiết</Button>
             ),
@@ -278,7 +363,15 @@ const DemandDetail = () => {
                         <Tabs type="card">
                             <Tabs.TabPane tab='Thông tin dịch vụ' key='1'>
                                 <Divider>
-                                    <Space style={{ marginLeft: 16 }}>
+                                    <Space
+                                        style={{
+                                            marginLeft: 16,
+                                            flexWrap: 'wrap',
+                                            justifyContent: 'center'
+                                        }}
+                                        size={[8, 8]}
+                                        wrap
+                                    >
                                         {!editMode ? (
                                             <>
                                                 <Button
@@ -362,7 +455,12 @@ const DemandDetail = () => {
                                         <InputNumber min={0} style={{ width: '100%' }} addonAfter="VND" />
                                     </Form.Item>
                                     <Form.Item label="Ngày cho thuê trong tuần" name="days">
-                                        <Select mode="multiple" options={WEEKDAYS} placeholder="Chọn ngày" />
+                                        <Select
+                                            mode="multiple"
+                                            options={WEEKDAYS}
+                                            placeholder="Chọn ngày"
+                                            value={demand?.date_range?.start ? [demand.date_range.start] : []}
+                                        />
                                     </Form.Item>
                                     <Form.Item label="Danh mục" name="category">
                                         <Input />
@@ -441,11 +539,11 @@ const DemandDetail = () => {
                                                         <MinusCircleOutlined onClick={() => remove(field.name)} style={{ color: '#ff4d4f', fontSize: 18, cursor: 'pointer' }} />
                                                     </div>
                                                 ))}
-                                                <Form.Item style={{ marginBottom: 0 }}>
+                                                {/* <Form.Item style={{ marginBottom: 0 }}>
                                                     <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
                                                         Thêm liên hệ
                                                     </Button>
-                                                </Form.Item>
+                                                </Form.Item> */}
                                             </div>
                                         )}
                                     </Form.List>
@@ -467,7 +565,8 @@ const DemandDetail = () => {
                                     handleTableChange={() => { }}
                                     pageSize={50}
                                     searchable={true}
-                                    searchField="name"
+                                    searchField="note"
+                                    scroll={{ x: 1000 }}
                                 />
                             </Tabs.TabPane>
                         </Tabs>
@@ -499,9 +598,6 @@ const DemandDetail = () => {
                             <div key={idx}>{c.platform}: {c.value}</div>
                         ))}
                     </Descriptions.Item>
-                    <Descriptions.Item label="Nội dung bài đăng">
-                        <pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{demand?.post_content}</pre>
-                    </Descriptions.Item>
                     <Descriptions.Item label="Hình ảnh">
                         <Image.PreviewGroup>
                             {demand?.image_urls?.map(url => (
@@ -514,7 +610,7 @@ const DemandDetail = () => {
 
             {/* Rental Detail Modal */}
             <Modal
-                title="Chi tiết yêu ứng tuyển"
+                title="Chi tiết hồ sơ ứng tuyển"
                 open={demandDetailModal}
                 onCancel={() => setDemandApplicationDetailModal(false)}
                 footer={selectedDemand && selectedDemand.status !== 'approved' ? [
@@ -524,23 +620,58 @@ const DemandDetail = () => {
                         setDemandList(list => list.map(r => r.id === selectedDemand.id ? { ...r, status: 'approved' } : r));
                         setDemandApplicationDetailModal(false);
                         setRentalLoading(false);
-                        message.success('Đã duyệt yêu ứng tuyển');
+                        message.success('Đã duyệt hồ sơ ứng tuyển');
                     }}>Duyệt</Button>,
                     <Button key="close" onClick={() => setDemandApplicationDetailModal(false)}>Đóng</Button>
                 ] : [<Button key="close" onClick={() => setDemandApplicationDetailModal(false)}>Đóng</Button>]}
+                width={1000}
             >
                 {selectedDemand && (
-                    <Descriptions bordered column={1} size="small">
-                        <Descriptions.Item label="Tên nhà cung cấp">{selectedDemand?.user?.user_metadata?.fullName}</Descriptions.Item>
-                        <Descriptions.Item label="Ghi chú">{selectedDemand.note}</Descriptions.Item>
-                        <Descriptions.Item label="Liên hệ">
-                            {selectedDemand?.contact_info?.contacts?.map((c, idx) => (
-                                <div key={idx}>{c.platform}: {c.value}</div>
-                            ))}
+                    <Descriptions
+                        bordered
+                        column={1}
+                        size="small"
+                        labelStyle={{ whiteSpace: 'nowrap' }}
+                    >
+                        <Descriptions.Item label="Tên người ứng tuyển">{selectedDemand.supplier?.raw_user_meta_data?.fullName}</Descriptions.Item>
+                        <Descriptions.Item label="Tên nhu cầu">{selectedDemand.demand?.title}</Descriptions.Item>
+                        <Descriptions.Item label="Ghi chú cho quản trị viên">{selectedDemand.note}</Descriptions.Item>
+                        <Descriptions.Item label="Chương trình khuyến mãi">{selectedDemand.promote_text || 'Không có'}</Descriptions.Item>
+                        <Descriptions.Item label="Thông tin liên hệ">
+                            {(() => {
+                                const contactInfo = parseContactInfo(selectedDemand.contact_info);
+                                return (
+                                    <div>
+                                        {contactInfo.name && <div><strong>Tên:</strong> {contactInfo.name}</div>}
+                                        {contactInfo.email && <div><strong>Email:</strong> {contactInfo.email}</div>}
+                                        {contactInfo.phone && <div><strong>Số điện thoại:</strong> {contactInfo.phone}</div>}
+                                        {contactInfo.address && <div><strong>Địa chỉ:</strong> {contactInfo.address}</div>}
+                                        {selectedDemand.supplier?.raw_user_meta_data?.email && !contactInfo.email && <div><strong>Email đăng ký:</strong> {selectedDemand.supplier.raw_user_meta_data.email}</div>}
+                                    </div>
+                                );
+                            })()}
                         </Descriptions.Item>
-
-                        <Descriptions.Item label="Chương trình khuyến mãi">
-                            {selectedDemand?.promote_text ? selectedDemand.promote_text : 'Không có'}</Descriptions.Item>
+                        <Descriptions.Item label="Trạng thái">
+                            {(() => {
+                                let color = 'red';
+                                let text = 'Chưa duyệt';
+                                if (selectedDemand.status === 'approved') {
+                                    color = 'green';
+                                    text = 'Đã duyệt';
+                                } else if (selectedDemand.status === 'pending') {
+                                    color = 'orange';
+                                    text = 'Chờ duyệt';
+                                }
+                                return <Tag color={color}>{text}</Tag>;
+                            })()}
+                        </Descriptions.Item>
+                        <Descriptions.Item label="Hình ảnh">
+                            <Image.PreviewGroup>
+                                {selectedDemand.image_urls?.map((url, idx) => (
+                                    <Image key={idx} src={url} style={{ maxWidth: 200, margin: 8 }} />
+                                ))}
+                            </Image.PreviewGroup>
+                        </Descriptions.Item>
                     </Descriptions>
                 )}
             </Modal >
