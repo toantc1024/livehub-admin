@@ -663,10 +663,22 @@ const ServiceDetail = () => {
                                     <Input.TextArea rows={3} />
                                 </Form.Item>
                                 <Form.Item label="Khoảng giá tối thiểu" name="min" rules={[{ required: true, message: 'Vui lòng nhập giá tối thiểu' }]}>
-                                    <InputNumber min={0} style={{ width: '100%' }} addonAfter="VND" />
+                                    <InputNumber
+                                        min={0}
+                                        style={{ width: '100%' }}
+                                        addonAfter="VND"
+                                        formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, '.')}
+                                        parser={value => value.replace(/\./g, '')}
+                                    />
                                 </Form.Item>
                                 <Form.Item label="Khoảng giá tối đa" name="max" rules={[{ required: true, message: 'Vui lòng nhập giá tối đa' }]}>
-                                    <InputNumber min={0} style={{ width: '100%' }} addonAfter="VND" />
+                                    <InputNumber
+                                        min={0}
+                                        style={{ width: '100%' }}
+                                        addonAfter="VND"
+                                        formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, '.')}
+                                        parser={value => value.replace(/\./g, '')}
+                                    />
                                 </Form.Item>
                                 <Form.Item label="Ngày cho thuê trong tuần" name="days">
                                     <Select
