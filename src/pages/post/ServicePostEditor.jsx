@@ -157,7 +157,7 @@ const ServicePostEditor = () => {
 
                         <Divider orientation="left">Quản lý hình ảnh</Divider>
 
-                        {/* Current Image Gallery */}
+                        {/* Current Image Gallery
                         {currentImages.length > 0 && (
                             <div style={{ marginBottom: 24 }}>
                                 <Title level={5}>Hình ảnh hiện tại</Title>
@@ -210,7 +210,7 @@ const ServicePostEditor = () => {
                                     ))}
                                 </Row>
                             </div>
-                        )}
+                        )} */}
 
                         <Form.Item label="Thêm hình ảnh mới" name="image_urls">
                             <Dropzone

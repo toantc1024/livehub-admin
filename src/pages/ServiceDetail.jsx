@@ -873,7 +873,7 @@ const ServiceDetail = () => {
                 width={800}
             >
                 <Descriptions bordered column={1} size="small">
-                    <Descriptions.Item label="Tên gói">{service?.title}</Descriptions.Item>
+                    <Descriptions.Item label="Tên dịch vụ">{service?.title}</Descriptions.Item>
                     <Descriptions.Item label="Mô tả">{service?.description}</Descriptions.Item>
                     <Descriptions.Item label="Giá">{service && formatCurrency(service.price_range?.min)} - {service && formatCurrency(service.price_range?.max)}</Descriptions.Item>
                     <Descriptions.Item label="Ngày cho thuê">{service?.date_range?.days?.map(d => d.toUpperCase()).join(', ')}</Descriptions.Item>
@@ -1099,7 +1099,7 @@ const ServiceDetail = () => {
                     </Button>
                 ]}
             >
-                <p>Bạn có muốn tạo bài đăng cho dịch vụ này không?</p>
+                <p>Bạn có muốn cập nhật bài đăng cho dịch vụ này không?</p>
             </Modal>
 
             {/* Custom Confirm Modal for Service Approval */}

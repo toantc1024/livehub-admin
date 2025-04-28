@@ -686,7 +686,7 @@ const DemandDetail = () => {
                 width={800}
             >
                 <Descriptions bordered column={1} size="small">
-                    <Descriptions.Item label="Tên gói">{demand?.title}</Descriptions.Item>
+                    <Descriptions.Item label="Tên nhu cầu">{demand?.title}</Descriptions.Item>
                     <Descriptions.Item label="Mô tả">{demand?.description}</Descriptions.Item>
                     <Descriptions.Item label="Giá">{demand && formatCurrency(demand.price_range?.min)} - {demand && formatCurrency(demand.price_range?.max)}</Descriptions.Item>
                     <Descriptions.Item label="Ngày cho thuê">{demand?.date_range?.days?.map(d => d.toUpperCase()).join(', ')}</Descriptions.Item>
@@ -868,7 +868,7 @@ const DemandDetail = () => {
                     </Button>
                 ]}
             >
-                <p>Bạn có muốn tạo bài đăng cho nhu cầu này không?</p>
+                <p>Bạn có muốn cập nhật bài đăng cho nhu cầu này không?</p>
             </Modal>
         </>
     );
