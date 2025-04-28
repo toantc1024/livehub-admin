@@ -46,6 +46,7 @@ const DemandDetail = () => {
     const [selectedDemand, setSelectedDemand] = useState(null);
     const [demandDetailModal, setDemandApplicationDetailModal] = useState(false);
     const [confirmModalVisible, setConfirmModalVisible] = useState(false);
+    const [postConfirmModalVisible, setPostConfirmModalVisible] = useState(false);
     // State for editable calendar in demand modal
     const [editableSlots, setEditableSlots] = useState([]);
     const user = useAuthStore(state => state.user);
@@ -184,7 +185,8 @@ const DemandDetail = () => {
         navigate(`/manage-demand/${id}/post`);
     };
 
-    const handleApprove = async () => {
+    const handleApprove = () => {
+        message.info('Bạn sắp duyệt nhu cầu này. Vui lòng xác nhận!');
         setConfirmModalVisible(true);
     };
 
@@ -617,7 +619,10 @@ const DemandDetail = () => {
                     <Button key="approve" type="primary" onClick={async () => {
                         setRentalLoading(true);
                         await updateDemandApplicationById(selectedDemand.id, { status: 'approved' });
-                        setDemandList(list => list.map(r => r.id === selectedDemand.id ? { ...r, status: 'approved' } : r));
+                        // Update both the list and the selected demand
+                        const updatedDemand = { ...selectedDemand, status: 'approved' };
+                        setSelectedDemand(updatedDemand);
+                        setDemandList(list => list.map(r => r.id === selectedDemand.id ? updatedDemand : r));
                         setDemandApplicationDetailModal(false);
                         setRentalLoading(false);
                         message.success('Đã duyệt hồ sơ ứng tuyển');
@@ -681,42 +686,57 @@ const DemandDetail = () => {
                 title="Xác nhận duyệt nhu cầu"
                 open={confirmModalVisible}
                 onCancel={() => setConfirmModalVisible(false)}
-                footer={
-                    [
-                        <Button key="cancel" onClick={() => setConfirmModalVisible(false)}>
-                            Hủy
-                        </Button>,
-                        <Button
-                            key="confirm"
-                            type="primary"
-                            onClick={async () => {
-                                setConfirmModalVisible(false);
-                                setLoading(true);
-                                const updatedDemand = {
-                                    ...demand,
-                                    status: 'approved',
-                                };
-                                const { error } = await updateDemandById(id, updatedDemand);
-                                if (error) {
-                                    messageApi.error('Lỗi khi duyệt dịch vụ: ' + error.message);
-                                    setLoading(false);
-                                    return;
-                                }
-                                setDemand(updatedDemand);
-                                messageApi.success('Duyệt dịch vụ thành công');
-                                // Navigate to post editor after approval
-                                setTimeout(() => {
-                                    navigate(`/manage-demand/${id}/post`);
-                                }, 1000);
-                            }}
-                        >
-                            Đồng ý
-                        </Button>
-                    ]}
+                footer={[
+                    <Button key="cancel" onClick={() => setConfirmModalVisible(false)}>
+                        Hủy
+                    </Button>,
+                    <Button
+                        key="confirm"
+                        type="primary"
+                        onClick={async () => {
+                            setConfirmModalVisible(false);
+                            setLoading(true);
+                            const updatedDemand = {
+                                ...demand,
+                                status: 'approved',
+                            };
+                            const { error } = await updateDemandById(id, updatedDemand);
+                            if (error) {
+                                messageApi.error('Lỗi khi duyệt dịch vụ: ' + error.message);
+                                setLoading(false);
+                                return;
+                            }
+                            setDemand(updatedDemand);
+                            messageApi.success('Duyệt dịch vụ thành công');
+                            setLoading(false);
+                            setPostConfirmModalVisible(true);
+                        }}
+                    >
+                        Đồng ý
+                    </Button>
+                ]}
             >
                 <p>Bạn có chắc chắn muốn duyệt nhu cầu này?</p>
                 <p>Việc duyệt sẽ cho phép bạn tạo bài đăng.</p>
-            </Modal >
+            </Modal>
+            <Modal
+                title="Tạo bài đăng cho nhu cầu"
+                open={postConfirmModalVisible}
+                onCancel={() => setPostConfirmModalVisible(false)}
+                footer={[
+                    <Button key="no" onClick={() => setPostConfirmModalVisible(false)}>
+                        Không
+                    </Button>,
+                    <Button key="yes" type="primary" onClick={() => {
+                        setPostConfirmModalVisible(false);
+                        navigate(`/manage-demand/${id}/post`);
+                    }}>
+                        Có
+                    </Button>
+                ]}
+            >
+                <p>Bạn có muốn tạo bài đăng cho nhu cầu này không?</p>
+            </Modal>
         </>
     );
 };

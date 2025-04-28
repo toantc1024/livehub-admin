@@ -44,6 +44,8 @@ const ServiceDetail = () => {
     const [rentalDetailModal, setRentalDetailModal] = useState(false);
     const [calendarModalVisible, setCalendarModalVisible] = useState(false);
     const [duplicateAlert, setDuplicateAlert] = useState(null);
+    const [postConfirmModalVisible, setPostConfirmModalVisible] = useState(false);
+    const [confirmModalVisible, setConfirmModalVisible] = useState(false);
     // State for editable calendar in rental modal
     const [editableSlots, setEditableSlots] = useState([]);
     useEffect(() => {
@@ -230,34 +232,8 @@ const ServiceDetail = () => {
     };
 
     const handleApprove = () => {
-        Modal.confirm({
-            title: 'Xác nhận duyệt dịch vụ',
-            content: 'Bạn có chắc chắn muốn duyệt dịch vụ này?',
-            onOk: async () => {
-                try {
-                    setLoading(true);
-                    const updatedService = {
-                        ...service,
-                        status: 'approved'
-                    };
-
-                    const { error } = await updateServiceById(id, updatedService);
-                    if (error) throw error;
-
-                    setService(updatedService);
-                    messageApi.success('Dịch vụ đã được duyệt thành công');
-
-                    // Navigate to post editor after approval
-                    setTimeout(() => {
-                        navigate(`/manage-service/${id}/post`);
-                    }, 1000);
-                } catch (error) {
-                    messageApi.error('Lỗi khi duyệt dịch vụ: ' + error.message);
-                } finally {
-                    setLoading(false);
-                }
-            }
-        });
+        message.info('Bạn sắp duyệt dịch vụ này. Vui lòng xác nhận!');
+        setConfirmModalVisible(true);
     };
 
     const handleAddPlatform = () => {
@@ -830,7 +806,6 @@ const ServiceDetail = () => {
                     <Button key="approve" type="primary" onClick={async () => {
                         // Check for duplicates before approving
                         const hasDuplicates = checkRentalForDuplicates(selectedRental);
-
                         if (hasDuplicates) {
                             Modal.confirm({
                                 title: 'Cảnh báo trùng lịch',
@@ -841,8 +816,10 @@ const ServiceDetail = () => {
                                 onOk: async () => {
                                     setRentalLoading(true);
                                     await updateServiceRentalById(selectedRental.id, { status: 'approved' });
-                                    setRentalList(list => list.map(r => r.id === selectedRental.id ? { ...r, status: 'approved' } : r));
-                                    setRentalDetailModal(false);
+                                    // Update both the list and the selected rental
+                                    const updatedRental = { ...selectedRental, status: 'approved' };
+                                    setSelectedRental(updatedRental);
+                                    setRentalList(list => list.map(r => r.id === selectedRental.id ? updatedRental : r));
                                     setRentalLoading(false);
                                     message.success('Đã duyệt yêu cầu thuê');
                                 }
@@ -850,8 +827,10 @@ const ServiceDetail = () => {
                         } else {
                             setRentalLoading(true);
                             await updateServiceRentalById(selectedRental.id, { status: 'approved' });
-                            setRentalList(list => list.map(r => r.id === selectedRental.id ? { ...r, status: 'approved' } : r));
-                            setRentalDetailModal(false);
+                            // Update both the list and the selected rental
+                            const updatedRental = { ...selectedRental, status: 'approved' };
+                            setSelectedRental(updatedRental);
+                            setRentalList(list => list.map(r => r.id === selectedRental.id ? updatedRental : r));
                             setRentalLoading(false);
                             message.success('Đã duyệt yêu cầu thuê');
                         }
@@ -988,6 +967,65 @@ const ServiceDetail = () => {
                     fullscreen={true}
                     dateCellRender={calendarDateCellRender}
                 />
+            </Modal>
+
+            {/* Post creation confirmation modal */}
+            <Modal
+                title="Tạo bài đăng cho dịch vụ"
+                open={postConfirmModalVisible}
+                onCancel={() => setPostConfirmModalVisible(false)}
+                footer={[
+                    <Button key="no" onClick={() => setPostConfirmModalVisible(false)}>
+                        Không
+                    </Button>,
+                    <Button key="yes" type="primary" onClick={() => {
+                        setPostConfirmModalVisible(false);
+                        navigate(`/manage-service/${id}/post`);
+                    }}>
+                        Có
+                    </Button>
+                ]}
+            >
+                <p>Bạn có muốn tạo bài đăng cho dịch vụ này không?</p>
+            </Modal>
+
+            {/* Custom Confirm Modal for Service Approval */}
+            <Modal
+                title="Xác nhận duyệt dịch vụ"
+                open={confirmModalVisible}
+                onCancel={() => setConfirmModalVisible(false)}
+                footer={[
+                    <Button key="cancel" onClick={() => setConfirmModalVisible(false)}>
+                        Hủy
+                    </Button>,
+                    <Button
+                        key="confirm"
+                        type="primary"
+                        onClick={async () => {
+                            setConfirmModalVisible(false);
+                            setLoading(true);
+                            const updatedService = {
+                                ...service,
+                                status: 'approved',
+                            };
+                            const { error } = await updateServiceById(id, updatedService);
+                            if (error) {
+                                messageApi.error('Lỗi khi duyệt dịch vụ: ' + error.message);
+                                setLoading(false);
+                                return;
+                            }
+                            setService(updatedService);
+                            messageApi.success('Duyệt dịch vụ thành công');
+                            setLoading(false);
+                            setPostConfirmModalVisible(true);
+                        }}
+                    >
+                        Đồng ý
+                    </Button>
+                ]}
+            >
+                <p>Bạn có chắc chắn muốn duyệt dịch vụ này?</p>
+                <p>Việc duyệt sẽ cho phép bạn tạo bài đăng.</p>
             </Modal>
         </>
     );
