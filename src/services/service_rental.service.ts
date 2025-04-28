@@ -22,9 +22,24 @@ export const getAllServiceRentalByServiceId = async (serviceId: string) => {
     try {
         const { data, error } = await supabase
             .from('service_rental')
-            .select('*')
+            .select(`
+*,
+    service_id,
+    buyer_id,
+    buyer:user_profiles(
+      *
+    ),
+    item(
+    *, 
+    owner_id,
+    owner:user_profiles(
+      *
+    )
+    )
+                `)
             .eq('service_id', serviceId)
-    
+
+
 
         if (error) throw error;
 

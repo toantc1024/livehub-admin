@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Input, Button, Space, message, Checkbox, Spin, Card } from 'antd';
-import { ArrowLeftOutlined } from '@ant-design/icons';
+import { Form, Input, Button, Space, message, Checkbox, Spin, Card, Row, Col, Image, Typography, Divider } from 'antd';
+import { ArrowLeftOutlined, DeleteOutlined, EyeOutlined } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router';
 import RichtextEditor from '../../components/RichtextEditor';
 import Dropzone from '../../components/Dropzone';
 import { getServiceById, updateServiceById } from '../../services/item.service';
+
+const { Title, Text } = Typography;
 
 const ServicePostEditor = () => {
     const navigate = useNavigate();
@@ -13,6 +15,9 @@ const ServicePostEditor = () => {
     const [loading, setLoading] = useState(false);
     const [service, setService] = useState(null);
     const [messageApi, contextHolder] = message.useMessage();
+    const [previewVisible, setPreviewVisible] = useState(false);
+    const [previewImage, setPreviewImage] = useState('');
+    const [currentImages, setCurrentImages] = useState([]);
 
     useEffect(() => {
         const loadService = async () => {
@@ -27,6 +32,7 @@ const ServicePostEditor = () => {
 
                 const serviceData = data[0];
                 setService(serviceData);
+                setCurrentImages(serviceData.image_urls || []);
 
                 form.setFieldsValue({
                     post_content: serviceData.post_content || '',
@@ -81,6 +87,22 @@ const ServicePostEditor = () => {
         navigate(`/manage-service/${id}`);
     };
 
+    const handleImageChange = (newImages) => {
+        setCurrentImages(newImages);
+        form.setFieldsValue({ image_urls: newImages });
+    };
+
+    const handleRemoveImage = (imageUrl) => {
+        const newImages = currentImages.filter(url => url !== imageUrl);
+        setCurrentImages(newImages);
+        form.setFieldsValue({ image_urls: newImages });
+    };
+
+    const handlePreview = (imageUrl) => {
+        setPreviewImage(imageUrl);
+        setPreviewVisible(true);
+    };
+
     return (
         <>
             {contextHolder}
@@ -121,19 +143,83 @@ const ServicePostEditor = () => {
                             <RichtextEditor />
                         </Form.Item>
 
-                        <Form.Item label="Hình ảnh" name="image_urls">
-                            <Dropzone maxFiles={5} bucket="images" />
+                        <Divider orientation="left">Quản lý hình ảnh</Divider>
+
+                        {/* Current Image Gallery */}
+                        {currentImages.length > 0 && (
+                            <div style={{ marginBottom: 24 }}>
+                                <Title level={5}>Hình ảnh hiện tại</Title>
+                                <Row gutter={[16, 16]}>
+                                    {currentImages.map((url, index) => (
+                                        <Col xs={24} sm={12} md={8} lg={6} key={index}>
+                                            <div
+                                                style={{
+                                                    border: '1px solid #f0f0f0',
+                                                    borderRadius: '4px',
+                                                    padding: '8px',
+                                                    position: 'relative'
+                                                }}
+                                            >
+                                                <Image
+                                                    src={url}
+                                                    alt={`Image ${index + 1}`}
+                                                    style={{
+                                                        width: '100%',
+                                                        height: '150px',
+                                                        objectFit: 'cover',
+                                                    }}
+                                                    preview={false}
+                                                />
+                                                <div
+                                                    style={{
+                                                        marginTop: 8,
+                                                        display: 'flex',
+                                                        justifyContent: 'space-between'
+                                                    }}
+                                                >
+                                                    <Button
+                                                        size="small"
+                                                        icon={<EyeOutlined />}
+                                                        onClick={() => handlePreview(url)}
+                                                    >
+                                                        Xem
+                                                    </Button>
+                                                    <Button
+                                                        size="small"
+                                                        danger
+                                                        icon={<DeleteOutlined />}
+                                                        onClick={() => handleRemoveImage(url)}
+                                                    >
+                                                        Xóa
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        </Col>
+                                    ))}
+                                </Row>
+                            </div>
+                        )}
+
+                        <Form.Item label="Thêm hình ảnh mới" name="image_urls">
+                            <Dropzone
+                                maxFiles={5}
+                                bucket="images"
+                                value={currentImages}
+                                onChange={handleImageChange}
+                            />
                         </Form.Item>
+                        <Text type="secondary">Tải lên tối đa 5 hình ảnh. Hình ảnh nên rõ nét và hiển thị đầy đủ sản phẩm/dịch vụ.</Text>
 
                         <Form.Item
                             name="is_public"
                             valuePropName="checked"
+                            style={{ marginTop: 24 }}
                         >
                             <Checkbox>Hiển thị bài đăng công khai</Checkbox>
                         </Form.Item>
 
                         <Form.Item>
-                            <Space>
+                            <Space size="middle">
                                 <Button type="primary" htmlType="submit" loading={loading}>
                                     {service?.post_content ? "Cập nhật" : "Tạo"}
                                 </Button>
@@ -145,6 +231,18 @@ const ServicePostEditor = () => {
                     </Form>
                 )}
             </Card>
+
+            {/* Image Preview Modal */}
+            <Image
+                width={0}
+                style={{ display: 'none' }}
+                src={previewImage}
+                preview={{
+                    visible: previewVisible,
+                    src: previewImage,
+                    onVisibleChange: (visible) => setPreviewVisible(visible),
+                }}
+            />
         </>
     );
 };
